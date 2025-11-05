@@ -8,52 +8,51 @@ pub enum FhirPathToken {
     Number(f64),
     Integer(i64),
     Boolean(bool),
-    
+
     // Operators
-    Dot,                    // .
-    Plus,                   // +
-    Minus,                  // -
-    Multiply,               // *
-    Divide,                 // /
-    Mod,                    // mod
-    Equals,                 // =
-    NotEquals,              // !=
-    LessThan,               // <
-    LessThanOrEqual,        // <=
-    GreaterThan,            // >
-    GreaterThanOrEqual,     // >=
-    And,                    // and
-    Or,                     // or
-    Xor,                    // xor
-    Not,                    // not
-    Is,                     // is
-    As,                     // as
-    
+    Dot,                // .
+    Plus,               // +
+    Minus,              // -
+    Multiply,           // *
+    Divide,             // /
+    Mod,                // mod
+    Equals,             // =
+    NotEquals,          // !=
+    LessThan,           // <
+    LessThanOrEqual,    // <=
+    GreaterThan,        // >
+    GreaterThanOrEqual, // >=
+    And,                // and
+    Or,                 // or
+    Xor,                // xor
+    Not,                // not
+    Is,                 // is
+    As,                 // as
+
     // Delimiters
-    LeftParen,              // (
-    RightParen,             // )
-    LeftBracket,            // [
-    RightBracket,           // ]
-    Comma,                  // ,
-    Pipe,                   // |
-    
+    LeftParen,    // (
+    RightParen,   // )
+    LeftBracket,  // [
+    RightBracket, // ]
+    Comma,        // ,
+    Pipe,         // |
+
     // Special
-    Dollar,                 // $
-    Percent,                // %
-    At,                     // @
-    
+    Dollar,  // $
+    Percent, // %
+    At,      // @
+
     // Keywords
-    Where,                  // where
-    Select,                 // select
-    All,                    // all
-    Any,                    // any
-    Empty,                  // empty
-    Exists,                 // exists
-    
+    Where,  // where
+    Select, // select
+    All,    // all
+    Any,    // any
+    Empty,  // empty
+    Exists, // exists
+
     // End of input
     Eof,
 }
-
 
 impl fmt::Display for FhirPathToken {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

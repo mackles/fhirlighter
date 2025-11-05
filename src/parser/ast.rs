@@ -1,6 +1,6 @@
-use crate::lexer::token::FhirPathToken;
 use super::grammar::Expression;
 use crate::evaluator::error::Error;
+use crate::lexer::token::FhirPathToken;
 
 pub struct FhirParser<'a> {
     tokens: &'a Vec<FhirPathToken>,
@@ -17,9 +17,9 @@ impl<'a> FhirParser<'a> {
     }
 
     /// Parse tokens into an Abstract Syntax Tree (`AST`)
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns `Error::Parse` if:
     /// - The token sequence cannot be parsed into a valid expression
     /// - Invalid syntax is encountered
@@ -29,9 +29,9 @@ impl<'a> FhirParser<'a> {
     }
 
     /// Parse a complete `FHIRPath` expression with member access, indexing, and function calls
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns `Error::Parse` if:
     /// - An invocation after a dot operator cannot be parsed
     /// - Invalid syntax is encountered in member access or function calls
@@ -41,24 +41,32 @@ impl<'a> FhirParser<'a> {
             if self.peek() == FhirPathToken::Dot {
                 self.advance();
                 let invocation = self.parse_invocation()?;
-                
+
                 match invocation {
-                    Expression::FunctionCall{object: _,function,arguments} => {
+                    Expression::FunctionCall {
+                        object: _,
+                        function,
+                        arguments,
+                    } => {
                         expression = Expression::FunctionCall {
                             object: Some(Box::new(expression)),
-                            function, 
-                            arguments
+                            function,
+                            arguments,
                         };
-                    },
+                    }
                     Expression::Identifier(member) => {
                         expression = Expression::MemberAccess {
                             object: Box::new(expression),
                             member: member.to_string(),
                         };
-                    },
+                    }
 
-                    _ => return Err(Error::Parse(format!("Couldn't parse invocation. Received: {invocation}"))),
-                } 
+                    _ => {
+                        return Err(Error::Parse(format!(
+                            "Couldn't parse invocation. Received: {invocation}"
+                        )));
+                    }
+                }
             // LeftBracket denotes index of e.g. we have name[0]
             } else if self.peek() == FhirPathToken::LeftBracket {
                 self.advance();
@@ -77,12 +85,10 @@ impl<'a> FhirParser<'a> {
         Ok(expression)
     }
 
-
-    
     /// Parse a term (literal values or identifiers)
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns `Error::Parse` if:
     /// - An unexpected token type is encountered
     /// - The current token cannot be parsed as a valid term
@@ -91,30 +97,32 @@ impl<'a> FhirParser<'a> {
             FhirPathToken::String(value) => {
                 self.advance();
                 Ok(Expression::String(value))
-            },
+            }
             FhirPathToken::Integer(value) => {
                 self.advance();
                 Ok(Expression::Integer(value))
-            },
+            }
             FhirPathToken::Number(value) => {
                 self.advance();
                 Ok(Expression::Number(value))
-            },
+            }
             FhirPathToken::Boolean(value) => {
                 self.advance();
                 Ok(Expression::Boolean(value))
-            },
-            FhirPathToken::Identifier(_) => {
-                self.parse_invocation()
-            },
-            value => Err(Error::Parse(format!("Couldn't parse term. Received: {}. Token: {}", value, self.peek()))),
+            }
+            FhirPathToken::Identifier(_) => self.parse_invocation(),
+            value => Err(Error::Parse(format!(
+                "Couldn't parse term. Received: {}. Token: {}",
+                value,
+                self.peek()
+            ))),
         }
     }
 
     /// Parse an invocation (identifier or function call)
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns `Error::Parse` if:
     /// - The identifier cannot be parsed
     /// - Function call syntax is malformed
@@ -134,13 +142,13 @@ impl<'a> FhirParser<'a> {
                     self.advance();
                 }
             }
-            
+
             // Consume the right paren.
             self.advance();
             identifier = Expression::FunctionCall {
                 object: None,
                 function: identifier.to_string(),
-                arguments
+                arguments,
             }
         }
 
@@ -148,17 +156,21 @@ impl<'a> FhirParser<'a> {
     }
 
     /// Parse an identifier token
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns `Error::Parse` if the current token is not an identifier.
     pub fn parse_identifier(&mut self) -> Result<Expression, Error> {
         match self.peek() {
             FhirPathToken::Identifier(value) => {
                 self.advance();
-                  Ok(Expression::Identifier(value))
-            },
-            value => Err(Error::Parse(format!("Couldn't parse identifier. Received: {}. token: {}", value, self.peek()))),
+                Ok(Expression::Identifier(value))
+            }
+            value => Err(Error::Parse(format!(
+                "Couldn't parse identifier. Received: {}. token: {}",
+                value,
+                self.peek()
+            ))),
         }
     }
 
@@ -203,23 +215,24 @@ impl<'a> FhirParser<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::lexer::token::FhirPathToken;
 
     // Helper function to create a parser with given tokens
-      fn create_parser(tokens: &Vec<FhirPathToken>) -> FhirParser {
+    fn create_parser(tokens: &Vec<FhirPathToken>) -> FhirParser {
         FhirParser::new(tokens)
     }
 
-
     #[test]
     fn test_parse_identifier_string() {
-        let tokens = vec![FhirPathToken::String("test".to_string()), FhirPathToken::Eof];
+        let tokens = vec![
+            FhirPathToken::String("test".to_string()),
+            FhirPathToken::Eof,
+        ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_term().unwrap();
         assert_eq!(result, Expression::String("test".to_string()));
     }
@@ -228,7 +241,7 @@ mod tests {
     fn test_parse_identifier_integer() {
         let tokens = vec![FhirPathToken::Integer(42), FhirPathToken::Eof];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_term().unwrap();
         assert_eq!(result, Expression::Integer(42));
     }
@@ -237,7 +250,7 @@ mod tests {
     fn test_parse_identifier_number() {
         let tokens = vec![FhirPathToken::Number(3.14), FhirPathToken::Eof];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_term().unwrap();
         assert_eq!(result, Expression::Number(3.14));
     }
@@ -246,16 +259,19 @@ mod tests {
     fn test_parse_identifier_boolean() {
         let tokens = vec![FhirPathToken::Boolean(true), FhirPathToken::Eof];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_term().unwrap();
         assert_eq!(result, Expression::Boolean(true));
     }
 
     #[test]
     fn test_parse_identifier_name() {
-        let tokens = vec![FhirPathToken::Identifier("Patient".to_string()), FhirPathToken::Eof];
+        let tokens = vec![
+            FhirPathToken::Identifier("Patient".to_string()),
+            FhirPathToken::Eof,
+        ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_identifier().unwrap();
         assert_eq!(result, Expression::Identifier("Patient".to_string()));
     }
@@ -264,7 +280,7 @@ mod tests {
     fn test_parse_identifier_invalid_token() {
         let tokens = vec![FhirPathToken::Dot, FhirPathToken::Eof];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_identifier();
         assert!(result.is_err());
         let error_msg = format!("{}", result.unwrap_err());
@@ -280,14 +296,18 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_invocation().unwrap();
         match result {
-            Expression::FunctionCall { object, function, arguments } => {
+            Expression::FunctionCall {
+                object,
+                function,
+                arguments,
+            } => {
                 assert!(object.is_none());
                 assert_eq!(function, "count");
                 assert_eq!(arguments.len(), 0);
-            },
+            }
             _ => panic!("Expected FunctionCall"),
         }
     }
@@ -304,16 +324,20 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_invocation().unwrap();
         match result {
-            Expression::FunctionCall { object, function, arguments } => {
+            Expression::FunctionCall {
+                object,
+                function,
+                arguments,
+            } => {
                 assert!(object.is_none());
                 assert_eq!(function, "substring");
                 assert_eq!(arguments.len(), 2);
                 assert_eq!(arguments[0], Expression::Integer(0));
                 assert_eq!(arguments[1], Expression::Integer(5));
-            },
+            }
             _ => panic!("Expected FunctionCall"),
         }
     }
@@ -327,13 +351,13 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_expression().unwrap();
         match result {
             Expression::MemberAccess { object, member } => {
                 assert_eq!(*object, Expression::Identifier("Patient".to_string()));
                 assert_eq!(member, "name");
-            },
+            }
             _ => panic!("Expected MemberAccess, got: {:?}", result),
         }
     }
@@ -349,19 +373,22 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_expression().unwrap();
         match result {
             Expression::MemberAccess { object, member } => {
                 assert_eq!(member, "family");
                 match *object {
-                    Expression::MemberAccess { object: inner_object, member: inner_member } => {
+                    Expression::MemberAccess {
+                        object: inner_object,
+                        member: inner_member,
+                    } => {
                         assert_eq!(*inner_object, Expression::Identifier("Patient".to_string()));
                         assert_eq!(inner_member, "name");
-                    },
+                    }
                     _ => panic!("Expected nested MemberAccess"),
                 }
-            },
+            }
             _ => panic!("Expected MemberAccess"),
         }
     }
@@ -377,15 +404,22 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_expression().unwrap();
         match result {
-            Expression::FunctionCall { object, function, arguments } => {
+            Expression::FunctionCall {
+                object,
+                function,
+                arguments,
+            } => {
                 assert!(object.is_some());
-                assert_eq!(*object.unwrap(), Expression::Identifier("Patient".to_string()));
+                assert_eq!(
+                    *object.unwrap(),
+                    Expression::Identifier("Patient".to_string())
+                );
                 assert_eq!(function, "count");
                 assert_eq!(arguments.len(), 0);
-            },
+            }
             _ => panic!("Expected FunctionCall"),
         }
     }
@@ -400,13 +434,13 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_expression().unwrap();
         match result {
             Expression::Index { object, index } => {
                 assert_eq!(*object, Expression::Identifier("Patient".to_string()));
                 assert_eq!(*index, Expression::Integer(0));
-            },
+            }
             _ => panic!("Expected Index"),
         }
     }
@@ -430,36 +464,52 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_expression().unwrap();
         // The result should be a function call with a complex object
         match result {
-            Expression::FunctionCall { object, function, arguments } => {
+            Expression::FunctionCall {
+                object,
+                function,
+                arguments,
+            } => {
                 assert!(object.is_some());
                 assert_eq!(function, "count");
                 assert_eq!(arguments.len(), 0);
-                
+
                 // Verify the nested structure
                 match *object.unwrap() {
-                    Expression::MemberAccess { object: family_object, member } => {
+                    Expression::MemberAccess {
+                        object: family_object,
+                        member,
+                    } => {
                         assert_eq!(member, "family");
                         match *family_object {
-                            Expression::Index { object: index_object, index } => {
+                            Expression::Index {
+                                object: index_object,
+                                index,
+                            } => {
                                 assert_eq!(*index, Expression::Integer(0));
                                 match *index_object {
-                                    Expression::MemberAccess { object: patient_object, member: name_member } => {
-                                        assert_eq!(*patient_object, Expression::Identifier("Patient".to_string()));
+                                    Expression::MemberAccess {
+                                        object: patient_object,
+                                        member: name_member,
+                                    } => {
+                                        assert_eq!(
+                                            *patient_object,
+                                            Expression::Identifier("Patient".to_string())
+                                        );
                                         assert_eq!(name_member, "name");
-                                    },
+                                    }
                                     _ => panic!("Expected MemberAccess for Patient.name"),
                                 }
-                            },
+                            }
                             _ => panic!("Expected Index"),
                         }
-                    },
+                    }
                     _ => panic!("Expected MemberAccess for .family"),
                 }
-            },
+            }
             _ => panic!("Expected FunctionCall"),
         }
     }
@@ -472,34 +522,40 @@ mod tests {
             FhirPathToken::Eof,
         ];
         let mut parser = create_parser(&tokens);
-        
+
         // Test peek
         assert_eq!(parser.peek(), FhirPathToken::Identifier("test".to_string()));
-        
+
         // Test advance
         let advanced = parser.advance();
         assert_eq!(advanced, FhirPathToken::Identifier("test".to_string()));
         assert_eq!(parser.peek(), FhirPathToken::Dot);
-        
+
         // Test previous
-        assert_eq!(parser.previous(), FhirPathToken::Identifier("test".to_string()));
-        
+        assert_eq!(
+            parser.previous(),
+            FhirPathToken::Identifier("test".to_string())
+        );
+
         // Test check
         assert!(parser.check(&FhirPathToken::Dot));
         assert!(!parser.check(&FhirPathToken::Comma));
-        
+
         // Test match_tokens
         assert!(parser.match_tokens(vec![FhirPathToken::Dot, FhirPathToken::Comma]));
-        
+
         // Should now be at EOF
         assert!(parser.is_at_end());
     }
 
     #[test]
     fn test_parse_expression() {
-        let tokens = vec![FhirPathToken::Identifier("Patient".to_string()), FhirPathToken::Eof];
+        let tokens = vec![
+            FhirPathToken::Identifier("Patient".to_string()),
+            FhirPathToken::Eof,
+        ];
         let mut parser = create_parser(&tokens);
-        
+
         let result = parser.parse_expression().unwrap();
         assert_eq!(result, Expression::Identifier("Patient".to_string()));
     }
@@ -508,7 +564,7 @@ mod tests {
     fn test_empty_token_list() {
         let tokens = vec![FhirPathToken::Eof];
         let parser = create_parser(&tokens);
-        
+
         // Should immediately be at end
         assert!(parser.is_at_end());
     }

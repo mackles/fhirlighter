@@ -1,18 +1,18 @@
+mod evaluator;
 mod lexer;
 mod parser;
-mod evaluator;
 
-use std::fs;
-use lexer::token::FhirPathToken;  
+use evaluator::engine::Evaluator;
+use lexer::token::FhirPathToken;
 use lexer::tokenizer::FhirPathLexer;
 use parser::ast::FhirParser;
-use evaluator::engine::Evaluator;
 use serde_json::Value;
 use std::env;
+use std::fs;
 use std::process;
 
 /// # Errors
-/// 
+///
 /// Returns an error if the expression contains invalid tokens or malformed syntax.
 pub fn parse_fhirpath_expression(expression: &str) -> Result<Vec<FhirPathToken>, String> {
     let mut lexer = FhirPathLexer::new(expression);
@@ -35,6 +35,4 @@ fn main() {
     let evaluator = Evaluator::new();
     let result = evaluator.evaluate(&compiled_expression, &data).unwrap();
     println!("Result: {result}");
-    
-
 }

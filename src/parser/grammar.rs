@@ -51,7 +51,6 @@ function_call = identifier "(" [param_list] ")" ;
 param_list = expression {"," expression} ;
 */
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     // Simple identifier like "Patient" or "name"
@@ -74,7 +73,7 @@ pub enum Expression {
         object: Box<Expression>,
         index: Box<Expression>,
     },
-    
+
     // Literals
     String(String),
     Number(f64),

@@ -1,14 +1,14 @@
 use super::error::Error;
-use super::evaluation_utils::{eval_index, eval_function};
+use super::evaluation_utils::{eval_function, eval_index};
 use crate::parser::grammar::Expression;
 use serde_json::Value;
 
 pub struct Evaluator;
 
 impl Default for Evaluator {
-  fn default() -> Self {
-      Self::new()
-  }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Evaluator {
@@ -16,28 +16,22 @@ impl Evaluator {
     pub const fn new() -> Self {
         Self
     }
-    
+
     /// # Errors
-    /// 
+    ///
     /// Returns an error if expression evaluation fails due to invalid syntax or runtime issues.
     pub fn evaluate(&self, expression: &Expression, resource: &Value) -> Result<Value, Error> {
         match self.eval(expression, resource) {
-            Ok(value) => {
-                Ok(value.clone())
+            Ok(value) => Ok(value.clone()),
+            Err(error) => match error {
+                Error::Parse(_) => Ok(Value::Array(vec![])),
+                _ => Err(error),
             },
-            Err(error) => {
-                match error {
-                    Error::Parse(_) => {
-                        Ok(Value::Array(vec![]))
-                    },
-                    _ => Err(error)
-                }
-            }
         }
     }
 
     #[allow(clippy::only_used_in_recursion)]
-    fn eval<'a>(&self, expression: &Expression, resource: &'a Value) -> Result<&'a Value, Error>  {
+    fn eval<'a>(&self, expression: &Expression, resource: &'a Value) -> Result<&'a Value, Error> {
         match expression {
             Expression::Identifier(name) => {
                 let resource_type = resource.get("resourceType").unwrap_or_default();
@@ -45,29 +39,36 @@ impl Evaluator {
                     return Ok(resource);
                 }
                 Err(Error::Parse(format!("Resource is not of type: {name}")))
-                
-            },
+            }
             Expression::MemberAccess { object, member } => {
                 let member_object = self.eval(object, resource)?;
-                member_object.get(member).ok_or_else(||Error::Parse(format!("Couldn't retrieve member: {member}")))
-            },
+                member_object
+                    .get(member)
+                    .ok_or_else(|| Error::Parse(format!("Couldn't retrieve member: {member}")))
+            }
             Expression::Index { object, index } => {
                 let index_object = self.eval(object, resource)?;
                 let index = eval_index(index, resource)?;
-                index_object.get(index).ok_or_else(||Error::Parse(format!("Couldn't retrieve index: {index}")))
-            },
-            Expression::FunctionCall { object, function, arguments } => {
-                if let Some(context) = object{
+                index_object
+                    .get(index)
+                    .ok_or_else(|| Error::Parse(format!("Couldn't retrieve index: {index}")))
+            }
+            Expression::FunctionCall {
+                object,
+                function,
+                arguments,
+            } => {
+                if let Some(context) = object {
                     let function_object = self.eval(context, resource)?;
                     Ok(eval_function(function_object, function, arguments)?)
-                }else{
-                    Err(Error::Parse("Standalone functions are not implemented".to_string()))
+                } else {
+                    Err(Error::Parse(
+                        "Standalone functions are not implemented".to_string(),
+                    ))
                 }
-
             }
             _ => todo!(),
         }
-
     }
 }
 
@@ -109,7 +110,7 @@ mod tests {
         let evaluator = Evaluator::new();
         let patient = get_test_patient();
         let expression = Expression::Identifier("Patient".to_string());
-        
+
         let result = evaluator.evaluate(&expression, &patient.clone()).unwrap();
         assert_eq!(result, patient);
     }
@@ -119,7 +120,7 @@ mod tests {
         let evaluator = Evaluator::new();
         let patient = get_test_patient();
         let expression = Expression::Identifier("Observation".to_string());
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
         assert_eq!(result, Value::Array(vec![]));
     }
@@ -132,7 +133,7 @@ mod tests {
             object: Box::new(Expression::Identifier("Patient".to_string())),
             member: "gender".to_string(),
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
         assert_eq!(result, json!("male"));
     }
@@ -148,19 +149,22 @@ mod tests {
             }),
             index: Box::new(Expression::Integer(0)),
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
-        assert_eq!(result, json!({
-            "use": "usual",
-            "type": {
-                "coding": [{
-                    "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
-                    "code": "MR"
-                }]
-            },
-            "system": "urn:oid:1.2.36.146.595.217.0.1",
-            "value": "12345"
-        }));
+        assert_eq!(
+            result,
+            json!({
+                "use": "usual",
+                "type": {
+                    "coding": [{
+                        "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                        "code": "MR"
+                    }]
+                },
+                "system": "urn:oid:1.2.36.146.595.217.0.1",
+                "value": "12345"
+            })
+        );
     }
 
     #[test]
@@ -171,7 +175,7 @@ mod tests {
             object: Box::new(Expression::Identifier("Patient".to_string())),
             member: "nonexistent".to_string(),
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
         assert_eq!(result, Value::Array(vec![]));
     }
@@ -187,13 +191,16 @@ mod tests {
             }),
             index: Box::new(Expression::Integer(0)),
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
-        assert_eq!(result, json!({
-            "use": "official",
-            "family": "Chalmers",
-            "given": ["Peter", "James"]
-        }));
+        assert_eq!(
+            result,
+            json!({
+                "use": "official",
+                "family": "Chalmers",
+                "given": ["Peter", "James"]
+            })
+        );
     }
 
     #[test]
@@ -207,7 +214,7 @@ mod tests {
             }),
             index: Box::new(Expression::Integer(5)),
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
         assert_eq!(result, Value::Array(vec![]));
     }
@@ -224,13 +231,16 @@ mod tests {
             function: "first".to_string(),
             arguments: vec![],
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
-        assert_eq!(result, json!({
-            "use": "official",
-            "family": "Chalmers",
-            "given": ["Peter", "James"]
-        }));
+        assert_eq!(
+            result,
+            json!({
+                "use": "official",
+                "family": "Chalmers",
+                "given": ["Peter", "James"]
+            })
+        );
     }
 
     #[test]
@@ -249,7 +259,7 @@ mod tests {
             function: "first".to_string(),
             arguments: vec![],
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
         assert_eq!(result, Value::Array(vec![]));
     }
@@ -263,7 +273,7 @@ mod tests {
             function: "first".to_string(),
             arguments: vec![],
         };
-        
+
         let result = evaluator.evaluate(&expression, &patient).unwrap();
         assert_eq!(result, Value::Array(vec![]));
     }
