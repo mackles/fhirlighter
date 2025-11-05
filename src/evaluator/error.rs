@@ -1,9 +1,8 @@
-
 #[derive(Debug)]
 pub enum Error {
     Parse(String),
     Unrecoverable(String),
-    IntegerConversion(String)
+    IntegerConversion(String),
 }
 
 impl std::fmt::Display for Error {
