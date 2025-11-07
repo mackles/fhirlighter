@@ -1,27 +1,20 @@
-use super::token::FhirPathToken;
+use super::token::{Token, TokenKind};
 
-pub struct FhirPathLexer<'a> {
+pub struct Lexer<'a> {
     input: &'a str,
-    position: usize,
-    line: usize,
-    column: usize,
+    position: usize, // byte position
 }
 
-impl<'a> FhirPathLexer<'a> {
+impl<'a> Lexer<'a> {
     #[must_use]
     pub const fn new(input: &'a str) -> Self {
-        Self {
-            input,
-            position: 0,
-            line: 1,
-            column: 1,
-        }
+        Self { input, position: 0 }
     }
 
     /// # Errors
     ///
     /// Returns an error if the input contains invalid tokens or malformed syntax.
-    pub fn tokenize(&mut self) -> Result<Vec<FhirPathToken>, String> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
         let mut tokens = Vec::new();
 
         while !self.is_at_end() {
@@ -34,47 +27,47 @@ impl<'a> FhirPathLexer<'a> {
             tokens.push(token);
         }
 
-        tokens.push(FhirPathToken::Eof);
+        tokens.push(Token::new(TokenKind::Eof, 1));
         Ok(tokens)
     }
 
-    fn next_token(&mut self) -> Result<FhirPathToken, String> {
+    fn next_token(&mut self) -> Result<Token, String> {
         let ch = self.current_char();
 
         match ch {
             '.' => {
                 self.advance();
-                Ok(FhirPathToken::Dot)
+                Ok(Token::new(TokenKind::Dot, 1))
             }
             '+' => {
                 self.advance();
-                Ok(FhirPathToken::Plus)
+                Ok(Token::new(TokenKind::Plus, 1))
             }
             '-' => {
                 self.advance();
-                Ok(FhirPathToken::Minus)
+                Ok(Token::new(TokenKind::Minus, 1))
             }
             '*' => {
                 self.advance();
-                Ok(FhirPathToken::Multiply)
+                Ok(Token::new(TokenKind::Multiply, 1))
             }
             '/' => {
                 self.advance();
-                Ok(FhirPathToken::Divide)
+                Ok(Token::new(TokenKind::Divide, 1))
             }
             '=' => {
                 self.advance();
-                Ok(FhirPathToken::Equals)
+                Ok(Token::new(TokenKind::Equals, 1))
             }
             '!' => {
                 self.advance();
                 if self.current_char() == '=' {
                     self.advance();
-                    Ok(FhirPathToken::NotEquals)
+                    Ok(Token::new(TokenKind::NotEquals, 1))
                 } else {
                     Err(format!(
-                        "Unexpected character '!' at line {}, column {}",
-                        self.line, self.column
+                        "Unexpected character '!' at position {}",
+                        self.position
                     ))
                 }
             }
@@ -82,72 +75,71 @@ impl<'a> FhirPathLexer<'a> {
                 self.advance();
                 if self.current_char() == '=' {
                     self.advance();
-                    Ok(FhirPathToken::LessThanOrEqual)
+                    Ok(Token::new(TokenKind::LessThanOrEqual, 1))
                 } else {
-                    Ok(FhirPathToken::LessThan)
+                    Ok(Token::new(TokenKind::LessThan, 1))
                 }
             }
             '>' => {
                 self.advance();
                 if self.current_char() == '=' {
                     self.advance();
-                    Ok(FhirPathToken::GreaterThanOrEqual)
+                    Ok(Token::new(TokenKind::GreaterThanOrEqual, 1))
                 } else {
-                    Ok(FhirPathToken::GreaterThan)
+                    Ok(Token::new(TokenKind::GreaterThan, 1))
                 }
             }
             '(' => {
                 self.advance();
-                Ok(FhirPathToken::LeftParen)
+                Ok(Token::new(TokenKind::LeftParen, 1))
             }
             ')' => {
                 self.advance();
-                Ok(FhirPathToken::RightParen)
+                Ok(Token::new(TokenKind::RightParen, 1))
             }
             '[' => {
                 self.advance();
-                Ok(FhirPathToken::LeftBracket)
+                Ok(Token::new(TokenKind::LeftBracket, 1))
             }
             ']' => {
                 self.advance();
-                Ok(FhirPathToken::RightBracket)
+                Ok(Token::new(TokenKind::RightBracket, 1))
             }
             ',' => {
                 self.advance();
-                Ok(FhirPathToken::Comma)
+                Ok(Token::new(TokenKind::Comma, 1))
             }
             '|' => {
                 self.advance();
-                Ok(FhirPathToken::Pipe)
+                Ok(Token::new(TokenKind::Pipe, 1))
             }
             '$' => {
                 self.advance();
-                Ok(FhirPathToken::Dollar)
+                Ok(Token::new(TokenKind::Dollar, 1))
             }
             '%' => {
                 self.advance();
-                Ok(FhirPathToken::Percent)
+                Ok(Token::new(TokenKind::Percent, 1))
             }
             '@' => {
                 self.advance();
-                Ok(FhirPathToken::At)
+                Ok(Token::new(TokenKind::At, 1))
             }
             '\'' | '"' => self.parse_string(),
             _ if ch.is_ascii_digit() => self.parse_number(),
             _ if ch.is_ascii_alphabetic() || ch == '_' => Ok(self.parse_identifier_or_keyword()),
             _ => Err(format!(
-                "Unexpected character '{ch}' at line {}, column {}",
-                self.line, self.column
+                "Unexpected character '{ch}' at position {}",
+                self.position
             )),
         }
     }
 
-    fn parse_string(&mut self) -> Result<FhirPathToken, String> {
+    fn parse_string(&mut self) -> Result<Token, String> {
+        let start = self.position;
         let quote_char = self.current_char();
         // Consume quote
         self.advance();
-
-        let mut value = String::new();
 
         while !self.is_at_end() && self.current_char() != quote_char {
             if self.current_char() == '\\' {
@@ -155,21 +147,6 @@ impl<'a> FhirPathLexer<'a> {
                 if self.is_at_end() {
                     return Err("Unterminated string literal".to_string());
                 }
-
-                match self.current_char() {
-                    'n' => value.push('\n'),
-                    't' => value.push('\t'),
-                    'r' => value.push('\r'),
-                    '\\' => value.push('\\'),
-                    '\'' => value.push('\''),
-                    '"' => value.push('"'),
-                    _ => {
-                        value.push('\\');
-                        value.push(self.current_char());
-                    }
-                }
-            } else {
-                value.push(self.current_char());
             }
             self.advance();
         }
@@ -180,10 +157,12 @@ impl<'a> FhirPathLexer<'a> {
 
         // Consume quote
         self.advance();
-        Ok(FhirPathToken::String(value))
+
+        Ok(Token::new(TokenKind::String, self.position - start))
     }
 
-    fn parse_number(&mut self) -> Result<FhirPathToken, String> {
+    fn parse_number(&mut self) -> Result<Token, String> {
+        let start = self.position;
         let mut value = String::new();
         let mut is_float = false;
 
@@ -203,59 +182,59 @@ impl<'a> FhirPathLexer<'a> {
         if is_float {
             value
                 .parse::<f64>()
-                .map(FhirPathToken::Number)
+                .map(|n| Token::new(TokenKind::Number(n), self.position - start))
                 .map_err(|_| format!("Invalid number: {value}"))
         } else {
             value
                 .parse::<i64>()
-                .map(FhirPathToken::Integer)
+                .map(|i| Token::new(TokenKind::Integer(i), self.position - start))
                 .map_err(|_| format!("Invalid integer: {value}"))
         }
     }
 
-    fn parse_identifier_or_keyword(&mut self) -> FhirPathToken {
-        let mut value = String::new();
+    fn parse_identifier_or_keyword(&mut self) -> Token {
+        let start_pos = self.position;
 
         while !self.is_at_end()
             && (self.current_char().is_ascii_alphanumeric() || self.current_char() == '_')
         {
-            value.push(self.current_char());
             self.advance();
         }
 
-        match value.as_str() {
-            "and" => FhirPathToken::And,
-            "or" => FhirPathToken::Or,
-            "xor" => FhirPathToken::Xor,
-            "not" => FhirPathToken::Not,
-            "is" => FhirPathToken::Is,
-            "as" => FhirPathToken::As,
-            "mod" => FhirPathToken::Mod,
-            "where" => FhirPathToken::Where,
-            "select" => FhirPathToken::Select,
-            "all" => FhirPathToken::All,
-            "any" => FhirPathToken::Any,
-            "empty" => FhirPathToken::Empty,
-            "exists" => FhirPathToken::Exists,
-            "true" => FhirPathToken::Boolean(true),
-            "false" => FhirPathToken::Boolean(false),
-            _ => FhirPathToken::Identifier(value),
-        }
+        let end_pos = self.position;
+        let value = &self.input[start_pos..end_pos];
+
+        let kind = match value {
+            "and" => TokenKind::And,
+            "or" => TokenKind::Or,
+            "xor" => TokenKind::Xor,
+            "not" => TokenKind::Not,
+            "is" => TokenKind::Is,
+            "as" => TokenKind::As,
+            "mod" => TokenKind::Mod,
+            "where" => TokenKind::Where,
+            "select" => TokenKind::Select,
+            "all" => TokenKind::All,
+            "any" => TokenKind::Any,
+            "empty" => TokenKind::Empty,
+            "exists" => TokenKind::Exists,
+            "true" => TokenKind::Boolean(true),
+            "false" => TokenKind::Boolean(false),
+            _ => TokenKind::Identifier,
+        };
+        Token::new(kind, end_pos - start_pos)
     }
 
     fn current_char(&self) -> char {
-        self.input.chars().nth(self.position).unwrap_or('\0')
+        self.input[self.position..].chars().next().unwrap_or('\0')
     }
 
-    fn advance(&mut self) {
-        if !self.is_at_end() {
-            if self.current_char() == '\n' {
-                self.line += 1;
-                self.column = 1;
-            } else {
-                self.column += 1;
-            }
-            self.position += 1;
+    fn advance(&mut self) -> Option<char> {
+        if let Some(ch) = self.input[self.position..].chars().next() {
+            self.position += ch.len_utf8();
+            Some(ch)
+        } else {
+            None
         }
     }
 
@@ -276,32 +255,89 @@ mod tests {
 
     #[test]
     fn test_basic_tokenization() {
-        let mut lexer = FhirPathLexer::new("Patient.name.family");
+        let mut lexer = Lexer::new("Patient.name.family");
         let tokens = lexer.tokenize().unwrap();
 
-        assert_eq!(tokens[0], FhirPathToken::Identifier("Patient".to_string()));
-        assert_eq!(tokens[1], FhirPathToken::Dot);
-        assert_eq!(tokens[2], FhirPathToken::Identifier("name".to_string()));
-        assert_eq!(tokens[3], FhirPathToken::Dot);
-        assert_eq!(tokens[4], FhirPathToken::Identifier("family".to_string()));
-        assert_eq!(tokens[5], FhirPathToken::Eof);
+        assert_eq!(tokens[0].kind, TokenKind::Identifier);
+        assert_eq!(tokens[1].kind, TokenKind::Dot);
+        assert_eq!(tokens[2].kind, TokenKind::Identifier);
+        assert_eq!(tokens[3].kind, TokenKind::Dot);
+        assert_eq!(tokens[4].kind, TokenKind::Identifier);
+        assert_eq!(tokens[5].kind, TokenKind::Eof);
+
+        // Test spans
+        assert_eq!(tokens[0].length, 7); // "Patient"
+        assert_eq!(tokens[1].length, 1); // "."
+        assert_eq!(tokens[2].length, 4); // "name"
+        assert_eq!(tokens[3].length, 1); // "."
+        assert_eq!(tokens[4].length, 6); // "family"
     }
 
     #[test]
     fn test_complex_expression() {
-        let mut lexer = FhirPathLexer::new("Patient.name.where(use = 'official').family");
+        let mut lexer = Lexer::new("Patient.name.where(use = 'official').family");
         let tokens = lexer.tokenize().unwrap();
 
-        println!("Tokens: {:?}", tokens);
-        assert!(!tokens.is_empty());
+        // Verify we have the expected tokens (including EOF)
+        assert_eq!(tokens.len(), 13);
+        assert_eq!(tokens[0].kind, TokenKind::Identifier); // Patient
+        assert_eq!(tokens[1].kind, TokenKind::Dot); // .
+        assert_eq!(tokens[2].kind, TokenKind::Identifier); // name
+        assert_eq!(tokens[3].kind, TokenKind::Dot); // .
+        assert_eq!(tokens[4].kind, TokenKind::Where); // where
+        assert_eq!(tokens[5].kind, TokenKind::LeftParen); // (
+        assert_eq!(tokens[6].kind, TokenKind::Identifier); // use
+        assert_eq!(tokens[7].kind, TokenKind::Equals); // =
+        assert_eq!(tokens[8].kind, TokenKind::String); // 'official'
+        assert_eq!(tokens[9].kind, TokenKind::RightParen); // )
+        assert_eq!(tokens[10].kind, TokenKind::Dot); // .
+        assert_eq!(tokens[11].kind, TokenKind::Identifier); // family
+        assert_eq!(tokens[12].kind, TokenKind::Eof); // EOF
     }
 
     #[test]
     fn test_numbers_and_strings() {
-        let mut lexer = FhirPathLexer::new("age > 18 and name = 'John'");
+        let mut lexer = Lexer::new("age > 18 and name = 'John'");
         let tokens = lexer.tokenize().unwrap();
 
-        println!("Tokens: {:?}", tokens);
-        assert!(!tokens.is_empty());
+        assert_eq!(tokens.len(), 8);
+        assert_eq!(tokens[0].kind, TokenKind::Identifier); // age
+        assert_eq!(tokens[1].kind, TokenKind::GreaterThan); // >
+        assert_eq!(tokens[2].kind, TokenKind::Integer(18)); // 18
+        assert_eq!(tokens[3].kind, TokenKind::And); // and
+        assert_eq!(tokens[4].kind, TokenKind::Identifier); // name
+        assert_eq!(tokens[5].kind, TokenKind::Equals); // =
+        assert_eq!(tokens[6].kind, TokenKind::String); // 'John'
+        assert_eq!(tokens[7].kind, TokenKind::Eof); // EOF
+    }
+
+    #[test]
+    fn test_operators() {
+        let mut lexer = Lexer::new("+ - * / = != < <= > >= | $ % @");
+        let tokens = lexer.tokenize().unwrap();
+
+        assert_eq!(tokens[0].kind, TokenKind::Plus);
+        assert_eq!(tokens[1].kind, TokenKind::Minus);
+        assert_eq!(tokens[2].kind, TokenKind::Multiply);
+        assert_eq!(tokens[3].kind, TokenKind::Divide);
+        assert_eq!(tokens[4].kind, TokenKind::Equals);
+        assert_eq!(tokens[5].kind, TokenKind::NotEquals);
+        assert_eq!(tokens[6].kind, TokenKind::LessThan);
+        assert_eq!(tokens[7].kind, TokenKind::LessThanOrEqual);
+        assert_eq!(tokens[8].kind, TokenKind::GreaterThan);
+        assert_eq!(tokens[9].kind, TokenKind::GreaterThanOrEqual);
+        assert_eq!(tokens[10].kind, TokenKind::Pipe);
+        assert_eq!(tokens[11].kind, TokenKind::Dollar);
+        assert_eq!(tokens[12].kind, TokenKind::Percent);
+        assert_eq!(tokens[13].kind, TokenKind::At);
+    }
+
+    #[test]
+    fn test_number_parsing() {
+        let mut lexer = Lexer::new("123 45.67");
+        let tokens = lexer.tokenize().unwrap();
+
+        assert_eq!(tokens[0].kind, TokenKind::Integer(123));
+        assert_eq!(tokens[1].kind, TokenKind::Number(45.67));
     }
 }

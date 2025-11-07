@@ -31,7 +31,7 @@ pub mod lexer;
 pub mod parser;
 
 use evaluator::engine::Evaluator;
-use lexer::tokenizer::FhirPathLexer;
+use lexer::tokenizer::Lexer;
 use parser::ast::FhirParser;
 
 // Re-export key types for public API
@@ -76,13 +76,13 @@ pub use serde_json::Value;
 /// Non-matching expressions return empty arrays as per `FHIRPath` specification.
 pub fn evaluate(expression: &str, resource: &Value) -> Result<Value, Error> {
     // Tokenize the expression
-    let mut lexer = FhirPathLexer::new(expression);
+    let mut lexer = Lexer::new(expression);
     let tokens = lexer
         .tokenize()
         .map_err(|e| Error::Parse(format!("Lexer error: {e}")))?;
 
     // Parse tokens into AST
-    let mut parser = FhirParser::new(&tokens);
+    let mut parser = FhirParser::new(&tokens, expression);
     let ast = parser.parse()?;
 
     // Evaluate AST against resource
@@ -126,12 +126,12 @@ pub fn evaluate(expression: &str, resource: &Value) -> Result<Value, Error> {
 ///
 /// Returns an error if the expression contains invalid syntax or cannot be parsed.
 pub fn parse(expression: &str) -> Result<Expression, Error> {
-    let mut lexer = FhirPathLexer::new(expression);
+    let mut lexer = Lexer::new(expression);
     let tokens = lexer
         .tokenize()
         .map_err(|e| Error::Parse(format!("Lexer error: {e}")))?;
 
-    let mut parser = FhirParser::new(&tokens);
+    let mut parser = FhirParser::new(&tokens, expression);
     parser.parse()
 }
 

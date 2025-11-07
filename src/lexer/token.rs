@@ -1,10 +1,10 @@
 use std::fmt;
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum FhirPathToken {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TokenKind {
     // Identifiers and literals
-    Identifier(String),
-    String(String),
+    Identifier,
+    String,
     Number(f64),
     Integer(i64),
     Boolean(bool),
@@ -54,48 +54,69 @@ pub enum FhirPathToken {
     Eof,
 }
 
-impl fmt::Display for FhirPathToken {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub length: usize,
+}
+
+impl Token {
+    #[must_use]
+    pub const fn new(kind: TokenKind, length: usize) -> Self {
+        Self { kind, length }
+    }
+
+    /// Get the text for this token from the original input
+    #[must_use]
+    pub fn text<'a>(&self, input: &'a str, position: usize) -> &'a str {
+        &input[position..position + self.length]
+    }
+}
+
+// Note: FhirPathToken alias removed as the migration to Token is complete
+
+impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Identifier(s) => write!(f, "{s}"),
-            Self::String(s) => write!(f, "'{s}'"),
-            Self::Number(n) => write!(f, "{n}"),
-            Self::Integer(i) => write!(f, "{i}"),
-            Self::Boolean(b) => write!(f, "{b}"),
-            Self::Dot => write!(f, "."),
-            Self::Plus => write!(f, "+"),
-            Self::Minus => write!(f, "-"),
-            Self::Multiply => write!(f, "*"),
-            Self::Divide => write!(f, "/"),
-            Self::Mod => write!(f, "mod"),
-            Self::Equals => write!(f, "="),
-            Self::NotEquals => write!(f, "!="),
-            Self::LessThan => write!(f, "<"),
-            Self::LessThanOrEqual => write!(f, "<="),
-            Self::GreaterThan => write!(f, ">"),
-            Self::GreaterThanOrEqual => write!(f, ">="),
-            Self::And => write!(f, "and"),
-            Self::Or => write!(f, "or"),
-            Self::Xor => write!(f, "xor"),
-            Self::Not => write!(f, "not"),
-            Self::Is => write!(f, "is"),
-            Self::As => write!(f, "as"),
-            Self::LeftParen => write!(f, "("),
-            Self::RightParen => write!(f, ")"),
-            Self::LeftBracket => write!(f, "["),
-            Self::RightBracket => write!(f, "]"),
-            Self::Comma => write!(f, ","),
-            Self::Pipe => write!(f, "|"),
-            Self::Dollar => write!(f, "$"),
-            Self::Percent => write!(f, "%"),
-            Self::At => write!(f, "@"),
-            Self::Where => write!(f, "where"),
-            Self::Select => write!(f, "select"),
-            Self::All => write!(f, "all"),
-            Self::Any => write!(f, "any"),
-            Self::Empty => write!(f, "empty"),
-            Self::Exists => write!(f, "exists"),
-            Self::Eof => write!(f, "EOF"),
+        match self.kind {
+            TokenKind::Identifier => write!(f, "identifier"),
+            TokenKind::String => write!(f, "string"),
+            TokenKind::Number(n) => write!(f, "{n}"),
+            TokenKind::Integer(i) => write!(f, "{i}"),
+            TokenKind::Boolean(b) => write!(f, "{b}"),
+            TokenKind::Dot => write!(f, "."),
+            TokenKind::Plus => write!(f, "+"),
+            TokenKind::Minus => write!(f, "-"),
+            TokenKind::Multiply => write!(f, "*"),
+            TokenKind::Divide => write!(f, "/"),
+            TokenKind::Mod => write!(f, "mod"),
+            TokenKind::Equals => write!(f, "="),
+            TokenKind::NotEquals => write!(f, "!="),
+            TokenKind::LessThan => write!(f, "<"),
+            TokenKind::LessThanOrEqual => write!(f, "<="),
+            TokenKind::GreaterThan => write!(f, ">"),
+            TokenKind::GreaterThanOrEqual => write!(f, ">="),
+            TokenKind::And => write!(f, "and"),
+            TokenKind::Or => write!(f, "or"),
+            TokenKind::Xor => write!(f, "xor"),
+            TokenKind::Not => write!(f, "not"),
+            TokenKind::Is => write!(f, "is"),
+            TokenKind::As => write!(f, "as"),
+            TokenKind::LeftParen => write!(f, "("),
+            TokenKind::RightParen => write!(f, ")"),
+            TokenKind::LeftBracket => write!(f, "["),
+            TokenKind::RightBracket => write!(f, "]"),
+            TokenKind::Comma => write!(f, ","),
+            TokenKind::Pipe => write!(f, "|"),
+            TokenKind::Dollar => write!(f, "$"),
+            TokenKind::Percent => write!(f, "%"),
+            TokenKind::At => write!(f, "@"),
+            TokenKind::Where => write!(f, "where"),
+            TokenKind::Select => write!(f, "select"),
+            TokenKind::All => write!(f, "all"),
+            TokenKind::Any => write!(f, "any"),
+            TokenKind::Empty => write!(f, "empty"),
+            TokenKind::Exists => write!(f, "exists"),
+            TokenKind::Eof => write!(f, "EOF"),
         }
     }
 }
