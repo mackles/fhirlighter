@@ -14,7 +14,7 @@ impl<'a> Lexer<'a> {
     /// # Errors
     ///
     /// Returns an error if the input contains invalid tokens or malformed syntax.
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, String> {
+    pub fn tokenize(mut self) -> Result<Vec<Token>, String> {
         let mut tokens = Vec::new();
 
         while !self.is_at_end() {
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_basic_tokenization() {
-        let mut lexer = Lexer::new("Patient.name.family");
+        let lexer = Lexer::new("Patient.name.family");
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens[0].kind, TokenKind::Identifier);
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn test_complex_expression() {
-        let mut lexer = Lexer::new("Patient.name.where(use = 'official').family");
+        let lexer = Lexer::new("Patient.name.where(use = 'official').family");
         let tokens = lexer.tokenize().unwrap();
 
         // Verify we have the expected tokens (including EOF)
@@ -297,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_numbers_and_strings() {
-        let mut lexer = Lexer::new("age > 18 and name = 'John'");
+        let lexer = Lexer::new("age > 18 and name = 'John'");
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens.len(), 8);
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_operators() {
-        let mut lexer = Lexer::new("+ - * / = != < <= > >= | $ % @");
+        let lexer = Lexer::new("+ - * / = != < <= > >= | $ % @");
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens[0].kind, TokenKind::Plus);
@@ -334,7 +334,7 @@ mod tests {
 
     #[test]
     fn test_number_parsing() {
-        let mut lexer = Lexer::new("123 45.67");
+        let lexer = Lexer::new("123 45.67");
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens[0].kind, TokenKind::Integer(123));

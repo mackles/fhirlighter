@@ -39,6 +39,8 @@ pub use evaluator::error::Error;
 pub use parser::grammar::Expression;
 pub use serde_json::Value;
 
+use crate::parser::ast::Ast;
+
 /// Evaluate a `FHIRPath` expression against a JSON resource
 ///
 /// This is the main entry point for the library. It takes a `FHIRPath` expression
@@ -76,13 +78,13 @@ pub use serde_json::Value;
 /// Non-matching expressions return empty arrays as per `FHIRPath` specification.
 pub fn evaluate(expression: &str, resource: &Value) -> Result<Value, Error> {
     // Tokenize the expression
-    let mut lexer = Lexer::new(expression);
+    let lexer = Lexer::new(expression);
     let tokens = lexer
         .tokenize()
         .map_err(|e| Error::Parse(format!("Lexer error: {e}")))?;
 
     // Parse tokens into AST
-    let mut parser = FhirParser::new(&tokens, expression);
+    let parser = FhirParser::new(&tokens, expression);
     let ast = parser.parse()?;
 
     // Evaluate AST against resource
@@ -125,13 +127,13 @@ pub fn evaluate(expression: &str, resource: &Value) -> Result<Value, Error> {
 /// # Errors
 ///
 /// Returns an error if the expression contains invalid syntax or cannot be parsed.
-pub fn parse(expression: &str) -> Result<Expression, Error> {
-    let mut lexer = Lexer::new(expression);
+pub fn parse(expression: &str) -> Result<Ast, Error> {
+    let lexer = Lexer::new(expression);
     let tokens = lexer
         .tokenize()
         .map_err(|e| Error::Parse(format!("Lexer error: {e}")))?;
 
-    let mut parser = FhirParser::new(&tokens, expression);
+    let parser = FhirParser::new(&tokens, expression);
     parser.parse()
 }
 
@@ -152,7 +154,7 @@ pub fn parse(expression: &str) -> Result<Expression, Error> {
 /// # Errors
 ///
 /// Returns an error if evaluation fails due to runtime issues.
-pub fn evaluate_ast(ast: &Expression, resource: &Value) -> Result<Value, Error> {
+pub fn evaluate_ast(ast: &Ast, resource: &Value) -> Result<Value, Error> {
     let evaluator = Evaluator::new();
     evaluator.evaluate(ast, resource)
 }

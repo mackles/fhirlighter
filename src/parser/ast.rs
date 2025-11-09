@@ -1,4 +1,4 @@
-use super::grammar::Expression;
+use super::grammar::{ExprPool, ExprRef, Expression};
 use crate::evaluator::error::Error;
 use crate::lexer::token::{Token, TokenKind};
 
@@ -7,6 +7,12 @@ pub struct FhirParser<'a> {
     input: &'a str,
     position: usize,
     str_position: usize,
+    ast: ExprPool,
+}
+
+pub struct Ast {
+    pub expressions: ExprPool,
+    pub start: ExprRef,
 }
 
 impl<'a> FhirParser<'a> {
@@ -17,6 +23,7 @@ impl<'a> FhirParser<'a> {
             input,
             position: 0,
             str_position: 0, // end of current token
+            ast: ExprPool::new(),
         }
     }
 
@@ -27,41 +34,42 @@ impl<'a> FhirParser<'a> {
 
     /// # Errors
     /// Parsing error.
-    pub fn parse(&mut self) -> Result<Expression, Error> {
-        self.parse_expression()
+    pub fn parse(mut self) -> Result<Ast, Error> {
+        let start = self.parse_expression()?;
+
+        Ok(Ast {
+            expressions: self.ast,
+            start,
+        })
     }
 
-
-    fn parse_expression(&mut self) -> Result<Expression, Error> {
+    fn parse_expression(&mut self) -> Result<ExprRef, Error> {
         let mut expression = self.parse_term()?;
         loop {
+            // If we have expression/term . invocation/identifier/...
             if self.peek().kind == TokenKind::Dot {
                 self.advance();
                 let invocation = self.parse_invocation()?;
-
-                match invocation {
+                let invocation_expr = self.ast.get(invocation).clone();
+                match invocation_expr {
                     Expression::FunctionCall {
                         object: _,
-                        function,
-                        arguments,
+                        function: _,
+                        arguments: _,
                     } => {
-                        expression = Expression::FunctionCall {
-                            object: Some(Box::new(expression)),
-                            function,
-                            arguments,
-                        };
+                        expression = self.ast.set_function_object(invocation, expression);
                     }
                     Expression::Identifier(member) => {
-                        expression = Expression::MemberAccess {
-                            object: Box::new(expression),
+                        expression = self.ast.add(Expression::MemberAccess {
+                            object: expression,
                             member: member.to_string(),
-                        };
+                        })?;
                     }
 
                     _ => {
-                        return Err(Error::Parse(format!(
-                            "Couldn't parse invocation. Received: {invocation}"
-                        )));
+                        return Err(Error::Parse(
+                            "Couldn't parse invocation. Received".to_string(),
+                        ));
                     }
                 }
             // LeftBracket denotes index of e.g. we have name[0]
@@ -69,10 +77,10 @@ impl<'a> FhirParser<'a> {
                 self.advance();
                 while !self.match_tokens(vec![TokenKind::RightBracket]) {
                     let index = self.parse_term()?;
-                    expression = Expression::Index {
-                        object: Box::new(expression),
-                        index: Box::new(index),
-                    };
+                    expression = self.ast.add(Expression::Index {
+                        object: expression,
+                        index,
+                    })?;
                 }
             } else {
                 break;
@@ -82,24 +90,24 @@ impl<'a> FhirParser<'a> {
         Ok(expression)
     }
 
-    fn parse_term(&mut self) -> Result<Expression, Error> {
+    fn parse_term(&mut self) -> Result<ExprRef, Error> {
         match self.peek().kind {
             TokenKind::String => {
                 let token = self.advance();
                 let text = self.token_text(&token);
-                Ok(Expression::String(text.to_string()))
+                Ok(self.ast.add(Expression::String(text.to_string())))?
             }
             TokenKind::Integer(value) => {
                 self.advance();
-                Ok(Expression::Integer(value))
+                Ok(self.ast.add(Expression::Integer(value)))?
             }
             TokenKind::Number(value) => {
                 self.advance();
-                Ok(Expression::Number(value))
+                Ok(self.ast.add(Expression::Number(value)))?
             }
             TokenKind::Boolean(value) => {
                 self.advance();
-                Ok(Expression::Boolean(value))
+                Ok(self.ast.add(Expression::Boolean(value)))?
             }
             TokenKind::Identifier => self.parse_invocation(),
             _ => {
@@ -111,8 +119,8 @@ impl<'a> FhirParser<'a> {
         }
     }
 
-    fn parse_invocation(&mut self) -> Result<Expression, Error> {
-        let mut identifier = self.parse_identifier()?;
+    fn parse_invocation(&mut self) -> Result<ExprRef, Error> {
+        let identifier = self.parse_identifier()?;
         // If we have a function
         if self.peek().kind == TokenKind::LeftParen {
             // Consume the left paren.
@@ -130,22 +138,22 @@ impl<'a> FhirParser<'a> {
 
             // Consume the right paren.
             self.advance();
-            identifier = Expression::FunctionCall {
+            let function = self.ast.add(Expression::FunctionCall {
                 object: None,
-                function: identifier.to_string(),
+                function: identifier,
                 arguments,
-            }
+            });
+            return Ok(function)?;
         }
 
         Ok(identifier)
     }
 
-
-    fn parse_identifier(&mut self) -> Result<Expression, Error> {
+    fn parse_identifier(&mut self) -> Result<ExprRef, Error> {
         if self.peek().kind == TokenKind::Identifier {
             let token = self.advance();
             let text = self.token_text(&token);
-            Ok(Expression::Identifier(text.to_string()))
+            Ok(self.ast.add(Expression::Identifier(text.to_string())))?
         } else {
             let token = self.peek();
             Err(Error::Parse(format!(
@@ -237,8 +245,9 @@ mod tests {
         let tokens = vec![create_string_token(0, 4), create_eof_token(4)];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_term().unwrap();
-        assert_eq!(result, Expression::String("test".to_string()));
+        let expr_ref = parser.parse_term().unwrap();
+        let result = parser.ast.get(expr_ref);
+        assert_eq!(*result, Expression::String("test".to_string()));
     }
 
     #[test]
@@ -247,8 +256,9 @@ mod tests {
         let tokens = vec![create_integer_token(42, 0, 2), create_eof_token(2)];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_term().unwrap();
-        assert_eq!(result, Expression::Integer(42));
+        let expr_ref = parser.parse_term().unwrap();
+        let result = parser.ast.get(expr_ref);
+        assert_eq!(*result, Expression::Integer(42));
     }
 
     #[test]
@@ -257,8 +267,9 @@ mod tests {
         let tokens = vec![create_number_token(3.14, 0, 4), create_eof_token(4)];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_term().unwrap();
-        assert_eq!(result, Expression::Number(3.14));
+        let expr_ref = parser.parse_term().unwrap();
+        let result = parser.ast.get(expr_ref);
+        assert_eq!(*result, Expression::Number(3.14));
     }
 
     #[test]
@@ -267,8 +278,9 @@ mod tests {
         let tokens = vec![create_boolean_token(true, 0, 4), create_eof_token(4)];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_term().unwrap();
-        assert_eq!(result, Expression::Boolean(true));
+        let expr_ref = parser.parse_term().unwrap();
+        let result = parser.ast.get(expr_ref);
+        assert_eq!(*result, Expression::Boolean(true));
     }
 
     #[test]
@@ -277,8 +289,9 @@ mod tests {
         let tokens = vec![create_identifier_token(0, 7), create_eof_token(8)];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_identifier().unwrap();
-        assert_eq!(result, Expression::Identifier("Patient".to_string()));
+        let expr_ref = parser.parse_identifier().unwrap();
+        let result = parser.ast.get(expr_ref);
+        assert_eq!(*result, Expression::Identifier("Patient".to_string()));
     }
 
     #[test]
@@ -304,7 +317,8 @@ mod tests {
         ];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_invocation().unwrap();
+        let expr_ref = parser.parse_invocation().unwrap();
+        let result = parser.ast.get(expr_ref);
         match result {
             Expression::FunctionCall {
                 object,
@@ -312,7 +326,12 @@ mod tests {
                 arguments,
             } => {
                 assert!(object.is_none());
-                assert_eq!(function, "count");
+                let function_expr = parser.ast.get(*function);
+                if let Expression::Identifier(name) = function_expr {
+                    assert_eq!(name, "count");
+                } else {
+                    panic!("Expected function to be identifier");
+                }
                 assert_eq!(arguments.len(), 0);
             }
             _ => panic!("Expected FunctionCall"),
@@ -333,7 +352,8 @@ mod tests {
         ];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_invocation().unwrap();
+        let expr_ref = parser.parse_invocation().unwrap();
+        let result = parser.ast.get(expr_ref);
         match result {
             Expression::FunctionCall {
                 object,
@@ -341,10 +361,15 @@ mod tests {
                 arguments,
             } => {
                 assert!(object.is_none());
-                assert_eq!(function, "substring");
+                let function_expr = parser.ast.get(*function);
+                if let Expression::Identifier(name) = function_expr {
+                    assert_eq!(name, "substring");
+                } else {
+                    panic!("Expected function to be identifier");
+                }
                 assert_eq!(arguments.len(), 2);
-                assert_eq!(arguments[0], Expression::Integer(0));
-                assert_eq!(arguments[1], Expression::Integer(5));
+                assert_eq!(*parser.ast.get(arguments[0]), Expression::Integer(0));
+                assert_eq!(*parser.ast.get(arguments[1]), Expression::Integer(5));
             }
             _ => panic!("Expected FunctionCall"),
         }
@@ -361,10 +386,12 @@ mod tests {
         ];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_expression().unwrap();
+        let expr_ref = parser.parse_expression().unwrap();
+        let result = parser.ast.get(expr_ref);
         match result {
             Expression::MemberAccess { object, member } => {
-                assert_eq!(*object, Expression::Identifier("Patient".to_string()));
+                let object_expr = parser.ast.get(*object);
+                assert_eq!(*object_expr, Expression::Identifier("Patient".to_string()));
                 assert_eq!(member, "name");
             }
             _ => panic!("Expected MemberAccess, got: {:?}", result),
@@ -384,16 +411,22 @@ mod tests {
         ];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_expression().unwrap();
+        let expr_ref = parser.parse_expression().unwrap();
+        let result = parser.ast.get(expr_ref);
         match result {
             Expression::MemberAccess { object, member } => {
                 assert_eq!(member, "family");
-                match *object {
+                let object_expr = parser.ast.get(*object);
+                match object_expr {
                     Expression::MemberAccess {
                         object: inner_object,
                         member: inner_member,
                     } => {
-                        assert_eq!(*inner_object, Expression::Identifier("Patient".to_string()));
+                        let inner_object_expr = parser.ast.get(*inner_object);
+                        assert_eq!(
+                            *inner_object_expr,
+                            Expression::Identifier("Patient".to_string())
+                        );
                         assert_eq!(inner_member, "name");
                     }
                     _ => panic!("Expected nested MemberAccess"),
@@ -416,7 +449,8 @@ mod tests {
         ];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_expression().unwrap();
+        let expr_ref = parser.parse_expression().unwrap();
+        let result = parser.ast.get(expr_ref);
         match result {
             Expression::FunctionCall {
                 object,
@@ -424,11 +458,14 @@ mod tests {
                 arguments,
             } => {
                 assert!(object.is_some());
-                assert_eq!(
-                    *object.unwrap(),
-                    Expression::Identifier("Patient".to_string())
-                );
-                assert_eq!(function, "count");
+                let object_expr = parser.ast.get(object.unwrap());
+                assert_eq!(*object_expr, Expression::Identifier("Patient".to_string()));
+                let function_expr = parser.ast.get(*function);
+                if let Expression::Identifier(name) = function_expr {
+                    assert_eq!(name, "count");
+                } else {
+                    panic!("Expected function to be identifier");
+                }
                 assert_eq!(arguments.len(), 0);
             }
             _ => panic!("Expected FunctionCall"),
@@ -446,12 +483,14 @@ mod tests {
             create_eof_token(10),
         ];
         let mut parser = create_parser(&tokens, input);
-        let result = parser.parse_expression().unwrap();
-        println!("{}", result);
+        let expr_ref = parser.parse_expression().unwrap();
+        let result = parser.ast.get(expr_ref);
         match result {
             Expression::Index { object, index } => {
-                assert_eq!(*object, Expression::Identifier("Patient".to_string()));
-                assert_eq!(*index, Expression::Integer(0));
+                let object_expr = parser.ast.get(*object);
+                assert_eq!(*object_expr, Expression::Identifier("Patient".to_string()));
+                let index_expr = parser.ast.get(*index);
+                assert_eq!(*index_expr, Expression::Integer(0));
             }
             _ => panic!("Expected Index"),
         }
@@ -478,7 +517,8 @@ mod tests {
         ];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_expression().unwrap();
+        let expr_ref = parser.parse_expression().unwrap();
+        let result = parser.ast.get(expr_ref);
         // The result should be a function call with a complex object
         match result {
             Expression::FunctionCall {
@@ -487,29 +527,39 @@ mod tests {
                 arguments,
             } => {
                 assert!(object.is_some());
-                assert_eq!(function, "count");
+                let function_expr = parser.ast.get(*function);
+                if let Expression::Identifier(name) = function_expr {
+                    assert_eq!(name, "count");
+                } else {
+                    panic!("Expected function to be identifier");
+                }
                 assert_eq!(arguments.len(), 0);
 
                 // Verify the nested structure
-                match *object.unwrap() {
+                let object_expr = parser.ast.get(object.unwrap());
+                match object_expr {
                     Expression::MemberAccess {
                         object: family_object,
                         member,
                     } => {
                         assert_eq!(member, "family");
-                        match *family_object {
+                        let family_object_expr = parser.ast.get(*family_object);
+                        match family_object_expr {
                             Expression::Index {
                                 object: index_object,
                                 index,
                             } => {
-                                assert_eq!(*index, Expression::Integer(0));
-                                match *index_object {
+                                let index_expr = parser.ast.get(*index);
+                                assert_eq!(*index_expr, Expression::Integer(0));
+                                let index_object_expr = parser.ast.get(*index_object);
+                                match index_object_expr {
                                     Expression::MemberAccess {
                                         object: patient_object,
                                         member: name_member,
                                     } => {
+                                        let patient_object_expr = parser.ast.get(*patient_object);
                                         assert_eq!(
-                                            *patient_object,
+                                            *patient_object_expr,
                                             Expression::Identifier("Patient".to_string())
                                         );
                                         assert_eq!(name_member, "name");
@@ -565,8 +615,9 @@ mod tests {
         let tokens = vec![create_identifier_token(0, 7), create_eof_token(7)];
         let mut parser = create_parser(&tokens, input);
 
-        let result = parser.parse_expression().unwrap();
-        assert_eq!(result, Expression::Identifier("Patient".to_string()));
+        let expr_ref = parser.parse_expression().unwrap();
+        let result = parser.ast.get(expr_ref);
+        assert_eq!(*result, Expression::Identifier("Patient".to_string()));
     }
 
     #[test]

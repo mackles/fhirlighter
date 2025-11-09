@@ -15,7 +15,7 @@ use std::process;
 ///
 /// Returns an error if the expression contains invalid tokens or malformed syntax.
 pub fn parse_fhirpath_expression(expression: &str) -> Result<Vec<Token>, String> {
-    let mut lexer = Lexer::new(expression);
+    let lexer = Lexer::new(expression);
     lexer.tokenize()
 }
 
@@ -28,7 +28,7 @@ fn main() {
     }
     let test = &args[1];
     let expression = parse_fhirpath_expression(test).unwrap();
-    let mut parser = FhirParser::new(&expression, test);
+    let parser = FhirParser::new(&expression, test);
     let compiled_expression = parser.parse().unwrap();
     let contents = fs::read_to_string(&args[2]).unwrap();
     let data: Value = serde_json::from_str(&contents).unwrap();

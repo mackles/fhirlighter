@@ -2,11 +2,7 @@ use super::error::Error;
 use crate::parser::grammar::Expression;
 use serde_json::Value;
 
-pub fn eval_function<'a>(
-    resource: &'a Value,
-    function: &str,
-    _: &Vec<Expression>,
-) -> Result<&'a Value, Error> {
+pub fn eval_function<'a>(resource: &'a Value, function: &str) -> Result<&'a Value, Error> {
     match function {
         "first" => resource
             .get(0)
@@ -22,8 +18,6 @@ pub fn eval_index(index: &Expression, _: &Value) -> Result<usize, Error> {
         Expression::Integer(i) => usize::try_from(*i).map_err(|e| {
             Error::IntegerConversion(format!("Couldn't convert integer: {i} with error: {e}"))
         }),
-        other => Err(Error::Unrecoverable(format!(
-            "Couldn't evaluate index: {other}"
-        ))),
+        _other => Err(Error::Unrecoverable("Couldn't evaluate index".to_string())),
     }
 }
