@@ -1,20 +1,20 @@
 [package]
-name = "emberpath-rs"
+name = "fhirlighter"
 version = "0.1.0"
 edition = "2024"
 description = "A FHIRPath expression parser and evaluator implemented in Rust"
 license = "MIT"
-repository = "https://github.com/yourusername/emberpath-rs"
+repository = "https://github.com/mackles/fhirlighter"
 keywords = ["fhir", "fhirpath", "parser", "healthcare", "json"]
 categories = ["parsing", "healthcare"]
 
 # Support both library and binary usage
 [lib]
-name = "emberpath_rs"
+name = "fhirlighter"
 path = "src/lib.rs"
 
 [[bin]]
-name = "emberpath-rs"
+name = "fhirlighter"
 path = "src/main.rs"
 
 [dependencies]

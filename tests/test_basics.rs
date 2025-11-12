@@ -3,7 +3,7 @@
 //! These tests are based on the official FHIRPath test suite:
 //! tests/specification/tests-fhir-r4.xml (testBasics group)
 
-use emberpath_rs::{Error, evaluate};
+use fhirlighter::{Error, evaluate};
 use serde_json::Value;
 use std::fs;
 

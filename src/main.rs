@@ -23,7 +23,7 @@ pub fn parse_fhirpath_expression(expression: &str) -> Result<Vec<Token>, String>
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 3 {
-        println!("Require two args: ./emberpath-rs <path> <file>");
+        println!("Require two args: ./fhirlighter <path> <file>");
         process::exit(1);
     }
     let test = &args[1];

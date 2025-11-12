@@ -1,10 +1,10 @@
-# Emberpath 
+# FHIRLighter 
 
 A FHIRPath expression parser and evaluator implemented in Rust as a learning project for both Rust programming and parser implementation.
 
 ## Overview
 
-Emberpath is a basic implementation of the [FHIRPath specification](https://www.hl7.org/fhirpath/) - a path-based navigation and extraction language for FHIR resources. 
+FHIRLighter is a basic implementation of the [FHIRPath specification](https://www.hl7.org/fhirpath/) - a path-based navigation and extraction language for FHIR resources. 
 
 ## Architecture
 
@@ -25,13 +25,13 @@ Run FHIRPath expressions against JSON files:
 cargo build
 
 # Evaluate expressions
-./target/debug/emberpath-rs "Patient.name[0].given.first()" "examples/patient.json"
+./target/debug/fhirlighter-rs "Patient.name[0].given.first()" "examples/patient.json"
 # Result: "Peter"
 
-./target/debug/emberpath-rs "Patient.gender" "examples/patient.json"
+./target/debug/fhirlighter-rs "Patient.gender" "examples/patient.json"
 # Result: "male"
 
-./target/debug/emberpath-rs "Patient.identifier[0].value" "examples/patient.json"
+./target/debug/fhirlighter-rs "Patient.identifier[0].value" "examples/patient.json"
 # Result: "12345"
 ```
 
@@ -85,7 +85,7 @@ cargo test
 
 ## Error Handling
 
-Emberpath follows FHIRPath specification for error handling:
+FHIRLighter follows FHIRPath specification for error handling:
 
 - **Parse Errors**: Return empty arrays (`[]`) for non-matching expressions
 - **Unrecoverable Errors**: Return error messages for invalid syntax

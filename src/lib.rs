@@ -6,7 +6,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use emberpath_rs::{evaluate, Error};
+//! use fhirlighter::{evaluate, Error};
 //! use serde_json::json;
 //!
 //! let patient = json!({
@@ -59,7 +59,7 @@ use crate::parser::ast::Ast;
 /// # Examples
 ///
 /// ```rust
-/// use emberpath_rs::{evaluate, Error};
+/// use fhirlighter::{evaluate, Error};
 /// use serde_json::json;
 ///
 /// let patient = json!({
@@ -108,7 +108,7 @@ pub fn evaluate(expression: &str, resource: &Value) -> Result<Value, Error> {
 /// # Examples
 ///
 /// ```rust
-/// use emberpath_rs::{parse, evaluate_ast};
+/// use fhirlighter::{parse, evaluate_ast};
 /// use serde_json::json;
 ///
 /// let ast = parse("Patient.gender")?;
@@ -121,7 +121,7 @@ pub fn evaluate(expression: &str, resource: &Value) -> Result<Value, Error> {
 ///
 /// assert_eq!(result1, json!("male"));
 /// assert_eq!(result2, json!("female"));
-/// # Ok::<(), emberpath_rs::Error>(())
+/// # Ok::<(), fhirlighter::Error>(())
 /// ```
 ///
 /// # Errors
