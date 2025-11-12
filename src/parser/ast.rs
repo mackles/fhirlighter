@@ -109,7 +109,7 @@ impl<'a> FhirParser<'a> {
                 self.advance();
                 Ok(self.ast.add(Expression::Boolean(value)))?
             }
-            TokenKind::Identifier => self.parse_invocation(),
+            TokenKind::Identifier | TokenKind::BackTick => self.parse_invocation(),
             _ => {
                 let token = self.peek();
                 Err(Error::Parse(format!(
@@ -120,7 +120,15 @@ impl<'a> FhirParser<'a> {
     }
 
     fn parse_invocation(&mut self) -> Result<ExprRef, Error> {
+        if self.peek().kind == TokenKind::BackTick {
+            self.advance();
+        }
+
         let identifier = self.parse_identifier()?;
+
+        if self.peek().kind == TokenKind::BackTick {
+            self.advance();
+        }
         // If we have a function
         if self.peek().kind == TokenKind::LeftParen {
             // Consume the left paren.
@@ -156,8 +164,9 @@ impl<'a> FhirParser<'a> {
             Ok(self.ast.add(Expression::Identifier(text.to_string())))?
         } else {
             let token = self.peek();
+            let position = self.position;
             Err(Error::Parse(format!(
-                "Couldn't parse identifier. Received: {token}"
+                "Couldn't parse identifier. Received: {token}. Position: {position}"
             )))
         }
     }

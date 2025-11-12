@@ -101,6 +101,10 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Ok(Token::new(TokenKind::LeftBracket, 1))
             }
+            '`' => {
+                self.advance();
+                Ok(Token::new(TokenKind::BackTick, 1))
+            }
             ']' => {
                 self.advance();
                 Ok(Token::new(TokenKind::RightBracket, 1))

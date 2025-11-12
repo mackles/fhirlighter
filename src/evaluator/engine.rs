@@ -1,10 +1,12 @@
 use super::error::Error;
 use super::evaluation_utils::{eval_function, eval_index};
+use crate::evaluator::utils::{get_from_array, get_from_object};
 use crate::parser::ast::Ast;
 #[cfg(test)]
 use crate::parser::grammar::ExprPool;
 use crate::parser::grammar::{ExprRef, Expression};
 use serde_json::Value;
+use std::borrow::Cow;
 
 pub struct Evaluator;
 
@@ -26,7 +28,7 @@ impl Evaluator {
     pub fn evaluate(&self, ast: &Ast, resource: &Value) -> Result<Value, Error> {
         let start = ast.start;
         match self.eval(ast, start, resource) {
-            Ok(value) => Ok(value.clone()),
+            Ok(value) => Ok(value.into_owned()),
             Err(error) => match error {
                 Error::Parse(_) => Ok(Value::Array(vec![])),
                 _ => Err(error),
@@ -37,31 +39,55 @@ impl Evaluator {
     #[allow(clippy::only_used_in_recursion)]
     fn eval<'a>(
         &self,
-        ast: &Ast,
+        ast: &'a Ast,
         expr_ref: ExprRef,
         resource: &'a Value,
-    ) -> Result<&'a Value, Error> {
+    ) -> Result<Cow<'a, Value>, Error> {
         let expression = ast.expressions.get(expr_ref);
         match expression {
             Expression::Identifier(name) => {
-                let resource_type = resource.get("resourceType").unwrap_or_default();
-                if resource_type.as_str().unwrap_or("") == name {
-                    return Ok(resource);
+                let resource_type = resource
+                    .get("resourceType")
+                    .unwrap_or_default()
+                    .as_str()
+                    .unwrap_or("");
+                if resource_type == name {
+                    return Ok(Cow::Borrowed(resource));
+                } else if let Some(value) = resource.get(name) {
+                    return Ok(Cow::Borrowed(value));
                 }
-                Err(Error::Parse(format!("Resource is not of type: {name}")))
+                Err(Error::Parse(format!(
+                    "Could not find field or resource type: {name}"
+                )))
             }
             Expression::MemberAccess { object, member } => {
                 let member_object = self.eval(ast, *object, resource)?;
-                member_object
-                    .get(member)
-                    .ok_or_else(|| Error::Parse(format!("Couldn't retrieve member: {member}")))
+                match member_object.as_ref() {
+                    Value::Array(array) => {
+                        let mut result = Vec::new();
+                        for item in array {
+                            if let Some(value) = item.get(member) {
+                                match value {
+                                    Value::Array(arr) => {
+                                        result.extend(arr.iter().cloned());
+                                    }
+                                    other => {
+                                        result.push(other.clone());
+                                    }
+                                }
+                            }
+                            // If member doesn't exist on this item, skip it (no error)
+                        }
+                        Ok(Cow::Owned(Value::Array(result)))
+                    }
+                    Value::Object(_) => get_from_object(member_object, member),
+                    _ => Err(Error::Parse("Unimplemented: MemberAccess".to_string())),
+                }
             }
             Expression::Index { object, index } => {
                 let index_object = self.eval(ast, *object, resource)?;
                 let index = eval_index(ast.expressions.get(index.to_owned()), resource)?;
-                index_object
-                    .get(index)
-                    .ok_or_else(|| Error::Parse(format!("Couldn't retrieve index: {index}")))
+                get_from_array(index_object, index)
             }
             Expression::FunctionCall {
                 object,
@@ -185,7 +211,7 @@ mod tests {
         let patient = get_test_patient();
         let ast = create_test_ast_with_single_expr(Expression::Identifier("Patient".to_string()));
 
-        let result = evaluator.evaluate(&ast, &patient.clone()).unwrap();
+        let result = evaluator.evaluate(&ast, &patient).unwrap();
         assert_eq!(result, patient);
     }
 

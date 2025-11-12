@@ -38,9 +38,10 @@ pub enum TokenKind {
     Pipe,         // |
 
     // Special
-    Dollar,  // $
-    Percent, // %
-    At,      // @
+    Dollar,   // $
+    Percent,  // %
+    At,       // @
+    BackTick, // `
 
     // Keywords
     Where,  // where
@@ -117,6 +118,7 @@ impl fmt::Display for Token {
             TokenKind::Empty => write!(f, "empty"),
             TokenKind::Exists => write!(f, "exists"),
             TokenKind::Eof => write!(f, "EOF"),
+            TokenKind::BackTick => write!(f, "`"),
         }
     }
 }

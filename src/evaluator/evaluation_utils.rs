@@ -1,12 +1,15 @@
+use std::borrow::Cow;
+
 use super::error::Error;
-use crate::parser::grammar::Expression;
+use crate::{evaluator::utils::get_from_array, parser::grammar::Expression};
 use serde_json::Value;
 
-pub fn eval_function<'a>(resource: &'a Value, function: &str) -> Result<&'a Value, Error> {
+pub fn eval_function<'a>(
+    resource: Cow<'a, Value>,
+    function: &str,
+) -> Result<Cow<'a, Value>, Error> {
     match function {
-        "first" => resource
-            .get(0)
-            .ok_or_else(|| Error::Parse("Array index out of bounds: first()".to_string())),
+        "first" => get_from_array(resource, 0),
         function => Err(Error::Unrecoverable(format!(
             "Couldn't evaluate function: {function}"
         ))),
