@@ -31,6 +31,7 @@ impl<'a> Lexer<'a> {
         Ok(tokens)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn next_token(&mut self) -> Result<Token, String> {
         let ch = self.current_char();
 

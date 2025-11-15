@@ -110,7 +110,24 @@ impl Evaluator {
                     ))
                 }
             }
-            _ => todo!(),
+            Expression::BinaryOperation { operator, lhs, rhs } => {
+                use crate::parser::grammar::BinaryOperator;
+                let lhs_eval = self.eval(ast, *lhs, resource)?.into_owned();
+                let rhs_eval = self.eval(ast, *rhs, resource)?.into_owned();
+                match operator {
+                    BinaryOperator::Equals => {
+                        if lhs_eval == rhs_eval {
+                            Ok(Cow::Owned(Value::Bool(true)))
+                        } else {
+                            Ok(Cow::Owned(Value::Bool(false)))
+                        }
+                    }
+                }
+            }
+            Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
+            expression => Err(Error::Parse(format!(
+                "Expression: {expression} not implemented",
+            ))),
         }
     }
 }

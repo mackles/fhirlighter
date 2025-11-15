@@ -82,6 +82,18 @@ impl<'a> FhirParser<'a> {
                         index,
                     })?;
                 }
+
+            // If our expression is an expression = expression
+            } else if self.peek().kind == TokenKind::Equals {
+                self.advance();
+                let rhs = self.parse_expression()?;
+                expression = self.ast.add({
+                    Expression::BinaryOperation {
+                        operator: super::grammar::BinaryOperator::Equals,
+                        lhs: expression,
+                        rhs,
+                    }
+                })?;
             } else {
                 break;
             }
@@ -95,7 +107,11 @@ impl<'a> FhirParser<'a> {
             TokenKind::String => {
                 let token = self.advance();
                 let text = self.token_text(&token);
-                Ok(self.ast.add(Expression::String(text.to_string())))?
+                // Strip the surrounding quotes from the string literal
+                let text_without_quotes = &text[1..text.len() - 1];
+                Ok(self
+                    .ast
+                    .add(Expression::String(text_without_quotes.to_string())))?
             }
             TokenKind::Integer(value) => {
                 self.advance();
@@ -250,8 +266,8 @@ mod tests {
 
     #[test]
     fn test_parse_identifier_string() {
-        let input = "test";
-        let tokens = vec![create_string_token(0, 4), create_eof_token(4)];
+        let input = "'test'";
+        let tokens = vec![create_string_token(0, 6), create_eof_token(6)];
         let mut parser = create_parser(&tokens, input);
 
         let expr_ref = parser.parse_term().unwrap();

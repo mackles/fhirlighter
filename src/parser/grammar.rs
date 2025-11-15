@@ -106,6 +106,11 @@ impl ExprPool {
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub struct ExprRef(u16);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BinaryOperator {
+    Equals,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     // Simple identifier like "Patient" or "name"
@@ -115,6 +120,12 @@ pub enum Expression {
         object: Option<ExprRef>, // Optional for standalone functions
         function: ExprRef,
         arguments: Vec<ExprRef>,
+    },
+
+    BinaryOperation {
+        operator: BinaryOperator,
+        lhs: ExprRef,
+        rhs: ExprRef,
     },
 
     // Member access like "Patient.name" or "name.given"
@@ -134,6 +145,14 @@ pub enum Expression {
     Number(f64),
     Integer(i64),
     Boolean(bool),
+}
+
+impl fmt::Display for BinaryOperator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Equals => write!(f, "="),
+        }
+    }
 }
 
 impl fmt::Display for Expression {
@@ -163,6 +182,9 @@ impl fmt::Display for Expression {
                     write!(f, "{arg}")?;
                 }
                 write!(f, ")")
+            }
+            Self::BinaryOperation { operator, lhs, rhs } => {
+                write!(f, "({lhs} {operator} {rhs})")
             }
             Self::Index { object, index } => {
                 write!(f, "{object}[{index}]")
