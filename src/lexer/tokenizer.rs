@@ -27,7 +27,8 @@ impl<'a> Lexer<'a> {
             tokens.push(token);
         }
 
-        tokens.push(Token::new(TokenKind::Eof, 1));
+        let pos = self.position;
+        tokens.push(Token::new(TokenKind::Eof, pos, pos));
         Ok(tokens)
     }
 
@@ -37,34 +38,41 @@ impl<'a> Lexer<'a> {
 
         match ch {
             '.' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Dot, 1))
+                Ok(Token::new(TokenKind::Dot, start, self.position))
             }
             '+' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Plus, 1))
+                Ok(Token::new(TokenKind::Plus, start, self.position))
             }
             '-' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Minus, 1))
+                Ok(Token::new(TokenKind::Minus, start, self.position))
             }
             '*' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Multiply, 1))
+                Ok(Token::new(TokenKind::Multiply, start, self.position))
             }
             '/' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Divide, 1))
+                Ok(Token::new(TokenKind::Divide, start, self.position))
             }
             '=' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Equals, 1))
+                Ok(Token::new(TokenKind::Equals, start, self.position))
             }
             '!' => {
+                let start = self.position;
                 self.advance();
                 if self.current_char() == '=' {
                     self.advance();
-                    Ok(Token::new(TokenKind::NotEquals, 1))
+                    Ok(Token::new(TokenKind::NotEquals, start, self.position))
                 } else {
                     Err(format!(
                         "Unexpected character '!' at position {}",
@@ -73,62 +81,78 @@ impl<'a> Lexer<'a> {
                 }
             }
             '<' => {
+                let start = self.position;
                 self.advance();
                 if self.current_char() == '=' {
                     self.advance();
-                    Ok(Token::new(TokenKind::LessThanOrEqual, 1))
+                    Ok(Token::new(TokenKind::LessThanOrEqual, start, self.position))
                 } else {
-                    Ok(Token::new(TokenKind::LessThan, 1))
+                    Ok(Token::new(TokenKind::LessThan, start, self.position))
                 }
             }
             '>' => {
+                let start = self.position;
                 self.advance();
                 if self.current_char() == '=' {
                     self.advance();
-                    Ok(Token::new(TokenKind::GreaterThanOrEqual, 1))
+                    Ok(Token::new(
+                        TokenKind::GreaterThanOrEqual,
+                        start,
+                        self.position,
+                    ))
                 } else {
-                    Ok(Token::new(TokenKind::GreaterThan, 1))
+                    Ok(Token::new(TokenKind::GreaterThan, start, self.position))
                 }
             }
             '(' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::LeftParen, 1))
+                Ok(Token::new(TokenKind::LeftParen, start, self.position))
             }
             ')' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::RightParen, 1))
+                Ok(Token::new(TokenKind::RightParen, start, self.position))
             }
             '[' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::LeftBracket, 1))
+                Ok(Token::new(TokenKind::LeftBracket, start, self.position))
             }
             '`' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::BackTick, 1))
+                Ok(Token::new(TokenKind::BackTick, start, self.position))
             }
             ']' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::RightBracket, 1))
+                Ok(Token::new(TokenKind::RightBracket, start, self.position))
             }
             ',' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Comma, 1))
+                Ok(Token::new(TokenKind::Comma, start, self.position))
             }
             '|' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Pipe, 1))
+                Ok(Token::new(TokenKind::Pipe, start, self.position))
             }
             '$' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Dollar, 1))
+                Ok(Token::new(TokenKind::Dollar, start, self.position))
             }
             '%' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::Percent, 1))
+                Ok(Token::new(TokenKind::Percent, start, self.position))
             }
             '@' => {
+                let start = self.position;
                 self.advance();
-                Ok(Token::new(TokenKind::At, 1))
+                Ok(Token::new(TokenKind::At, start, self.position))
             }
             '\'' | '"' => self.parse_string(),
             _ if ch.is_ascii_digit() => self.parse_number(),
@@ -163,7 +187,7 @@ impl<'a> Lexer<'a> {
         // Consume quote
         self.advance();
 
-        Ok(Token::new(TokenKind::String, self.position - start))
+        Ok(Token::new(TokenKind::String, start, self.position))
     }
 
     fn parse_number(&mut self) -> Result<Token, String> {
@@ -184,15 +208,16 @@ impl<'a> Lexer<'a> {
             self.advance();
         }
 
+        let end = self.position;
         if is_float {
             value
                 .parse::<f64>()
-                .map(|n| Token::new(TokenKind::Number(n), self.position - start))
+                .map(|n| Token::new(TokenKind::Number(n), start, end))
                 .map_err(|_| format!("Invalid number: {value}"))
         } else {
             value
                 .parse::<i64>()
-                .map(|i| Token::new(TokenKind::Integer(i), self.position - start))
+                .map(|i| Token::new(TokenKind::Integer(i), start, end))
                 .map_err(|_| format!("Invalid integer: {value}"))
         }
     }
@@ -227,7 +252,7 @@ impl<'a> Lexer<'a> {
             "false" => TokenKind::Boolean(false),
             _ => TokenKind::Identifier,
         };
-        Token::new(kind, end_pos - start_pos)
+        Token::new(kind, start_pos, end_pos)
     }
 
     fn current_char(&self) -> char {
@@ -271,11 +296,11 @@ mod tests {
         assert_eq!(tokens[5].kind, TokenKind::Eof);
 
         // Test spans
-        assert_eq!(tokens[0].length, 7); // "Patient"
-        assert_eq!(tokens[1].length, 1); // "."
-        assert_eq!(tokens[2].length, 4); // "name"
-        assert_eq!(tokens[3].length, 1); // "."
-        assert_eq!(tokens[4].length, 6); // "family"
+        assert_eq!(tokens[0].length(), 7); // "Patient"
+        assert_eq!(tokens[1].length(), 1); // "."
+        assert_eq!(tokens[2].length(), 4); // "name"
+        assert_eq!(tokens[3].length(), 1); // "."
+        assert_eq!(tokens[4].length(), 6); // "family"
     }
 
     #[test]

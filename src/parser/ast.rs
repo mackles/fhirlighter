@@ -29,7 +29,7 @@ impl<'a> FhirParser<'a> {
 
     /// Get the text for a token from the original input
     fn token_text(&self, token: &Token) -> &str {
-        token.text(self.input, self.str_position - token.length)
+        token.text(self.input)
     }
 
     /// # Errors
@@ -206,7 +206,7 @@ impl<'a> FhirParser<'a> {
 
     fn advance(&mut self) -> Token {
         if !self.is_at_end() {
-            self.str_position += self.peek().length;
+            self.str_position += self.peek().length();
             self.position += 1;
         }
         self.previous()
@@ -237,7 +237,7 @@ mod tests {
 
     // Helper functions to create tokens
     fn create_token(kind: TokenKind, start: usize, end: usize) -> Token {
-        Token::new(kind, end - start)
+        Token::new(kind, start, end)
     }
 
     fn create_identifier_token(start: usize, end: usize) -> Token {

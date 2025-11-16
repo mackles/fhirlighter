@@ -58,19 +58,26 @@ pub enum TokenKind {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
-    pub length: usize,
+    pub start: usize,
+    pub end: usize,
 }
 
 impl Token {
     #[must_use]
-    pub const fn new(kind: TokenKind, length: usize) -> Self {
-        Self { kind, length }
+    pub const fn new(kind: TokenKind, start: usize, end: usize) -> Self {
+        Self { kind, start, end }
     }
 
     /// Get the text for this token from the original input
     #[must_use]
-    pub fn text<'a>(&self, input: &'a str, position: usize) -> &'a str {
-        &input[position..position + self.length]
+    pub fn text<'a>(&self, input: &'a str) -> &'a str {
+        &input[self.start..self.end]
+    }
+
+    /// Get the length of this token
+    #[must_use]
+    pub const fn length(&self) -> usize {
+        self.end - self.start
     }
 }
 
