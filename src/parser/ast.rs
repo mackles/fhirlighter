@@ -1,6 +1,8 @@
 use super::grammar::{BinaryOperator, ExprPool, ExprRef, Expression};
 use crate::evaluator::error::Error;
 use crate::lexer::token::{Token, TokenKind};
+use time::format_description::well_known::Iso8601;
+use time::{Date, PrimitiveDateTime};
 
 pub struct FhirParser<'a> {
     tokens: &'a Vec<Token>,
@@ -82,8 +84,6 @@ impl<'a> FhirParser<'a> {
                         index,
                     })?;
                 }
-
-            // If our expression is a binary operation (e.g., =, !=, <, <=, >, >=)
             } else if let Some(operator) = BinaryOperator::from_token(&self.peek().kind) {
                 self.advance();
                 let rhs = self.parse_expression()?;
@@ -124,6 +124,18 @@ impl<'a> FhirParser<'a> {
             TokenKind::Boolean(value) => {
                 self.advance();
                 Ok(self.ast.add(Expression::Boolean(value)))?
+            }
+            TokenKind::ISODateTime => {
+                let datetime_token = self.advance();
+                let iso_date =
+                    PrimitiveDateTime::parse(self.token_text(&datetime_token), &Iso8601::DEFAULT)
+                        .unwrap();
+                Ok(self.ast.add(Expression::ISODateTime(iso_date)))?
+            }
+            TokenKind::ISODate => {
+                let date_token = self.advance();
+                let iso_date = Date::parse(self.token_text(&date_token), &Iso8601::DATE).unwrap();
+                Ok(self.ast.add(Expression::ISODate(iso_date)))?
             }
             TokenKind::Identifier | TokenKind::BackTick => self.parse_invocation(),
             _ => {

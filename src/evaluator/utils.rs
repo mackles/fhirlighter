@@ -1,6 +1,6 @@
-use std::borrow::Cow;
-
 use serde_json::Value;
+use std::borrow::Cow;
+use time::{Date, PrimitiveDateTime, format_description::well_known::Iso8601};
 
 use super::error::Error;
 
@@ -36,26 +36,33 @@ pub fn get_from_array(cow_arr: Cow<Value>, index: usize) -> Result<Cow<Value>, E
     }
 }
 
-#[derive(PartialEq, PartialOrd)]
+#[derive(Eq, PartialEq, PartialOrd, Debug)]
 pub enum ComparableTypes {
     String(String),
     Integer(i64),
     Boolean(bool),
+    ISODateTime(PrimitiveDateTime),
+    ISODate(Date),
 }
 
 impl ComparableTypes {
-    #[must_use]
     pub fn from_value(value: Value) -> Result<Self, Error> {
         match value {
-            Value::String(string) => Ok(Self::String(string)),
-            Value::Number(number) => {
-                if let Some(int) = number.as_i64() {
-                    Ok(Self::Integer(int))
-                } else {
-                    Err(Error::Parse(
-                        "Number cannot be represented as i64".to_string(),
-                    ))
+            Value::String(string) => {
+                if let Ok(date) = Date::parse(&string, &Iso8601::DATE) {
+                    return Ok(Self::ISODate(date));
                 }
+                if let Ok(datetime) = PrimitiveDateTime::parse(&string, &Iso8601::DEFAULT) {
+                    return Ok(Self::ISODateTime(datetime));
+                }
+
+                // If parsing fails, treat as regular string
+                Ok(Self::String(string))
+            }
+            Value::Number(number) => {
+                number.as_i64().map_or_else(|| Err(Error::Parse(
+                        "Number cannot be represented as i64".to_string(),
+                 )), |int| Ok(Self::Integer(int)))
             }
             Value::Bool(b) => Ok(Self::Boolean(b)),
             _ => Err(Error::Parse(

@@ -149,11 +149,7 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Ok(Token::new(TokenKind::Percent, start, self.position))
             }
-            '@' => {
-                let start = self.position;
-                self.advance();
-                Ok(Token::new(TokenKind::At, start, self.position))
-            }
+            '@' => Ok(self.parse_date()),
             '\'' | '"' => self.parse_string(),
             _ if ch.is_ascii_digit() => self.parse_number(),
             _ if ch.is_ascii_alphabetic() || ch == '_' => Ok(self.parse_identifier_or_keyword()),
@@ -162,6 +158,27 @@ impl<'a> Lexer<'a> {
                 self.position
             )),
         }
+    }
+
+    // TODO: Improve error checking.
+    fn parse_date(&mut self) -> Token {
+        // Consume @
+        self.advance();
+        let start = self.position;
+
+        // Parse ISO date format: @YYYY-MM-DD or @YYYY-MM-DDTHH:MM:SS
+        while !self.is_at_end()
+            && !self.current_char().is_whitespace()
+            && self.current_char() != ')'
+            && self.current_char() != ','
+        {
+            self.advance();
+        }
+
+        if self.position - start > 10 {
+            return Token::new(TokenKind::ISODateTime, start, self.position);
+        }
+        Token::new(TokenKind::ISODate, start, self.position)
     }
 
     fn parse_string(&mut self) -> Result<Token, String> {
@@ -343,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_operators() {
-        let lexer = Lexer::new("+ - * / = != < <= > >= | $ % @");
+        let lexer = Lexer::new("+ - * / = != < <= > >= | $ %");
         let tokens = lexer.tokenize().unwrap();
 
         assert_eq!(tokens[0].kind, TokenKind::Plus);
@@ -359,7 +376,6 @@ mod tests {
         assert_eq!(tokens[10].kind, TokenKind::Pipe);
         assert_eq!(tokens[11].kind, TokenKind::Dollar);
         assert_eq!(tokens[12].kind, TokenKind::Percent);
-        assert_eq!(tokens[13].kind, TokenKind::At);
     }
 
     #[test]

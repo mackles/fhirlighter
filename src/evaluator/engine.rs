@@ -30,7 +30,10 @@ impl Evaluator {
         match self.eval(ast, start, resource) {
             Ok(value) => Ok(value.into_owned()),
             Err(error) => match error {
-                Error::Parse(_) => Ok(Value::Array(vec![])),
+                Error::Parse(error) => {
+                    println!("{error}");
+                    Ok(Value::Array(vec![]))
+                }
                 _ => Err(error),
             },
         }
@@ -117,7 +120,7 @@ impl Evaluator {
                     ComparableTypes::from_value(self.eval(ast, *rhs, resource)?.into_owned())?;
                 match operator {
                     BinaryOperator::Equals => Ok(Cow::Owned(Value::Bool(lhs == rhs))),
-                    BinaryOperator::NotEquals => Ok(Cow::Owned(Value::Bool(lhs == rhs))),
+                    BinaryOperator::NotEquals => Ok(Cow::Owned(Value::Bool(lhs != rhs))),
                     BinaryOperator::LessThan => Ok(Cow::Owned(Value::Bool(lhs < rhs))),
                     BinaryOperator::LessThanOrEqual => Ok(Cow::Owned(Value::Bool(lhs <= rhs))),
                     BinaryOperator::GreaterThan => Ok(Cow::Owned(Value::Bool(lhs > rhs))),
@@ -126,6 +129,9 @@ impl Evaluator {
             }
             Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
             Expression::Integer(integer) => Ok(Cow::Owned(Value::Number(Number::from(*integer)))),
+            // TODO: Identify whether this causes issues/investigate a cleaner way to do this
+            Expression::ISODate(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
+            Expression::ISODateTime(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
             expression => Err(Error::Parse(format!(
                 "Expression: {expression} not implemented",
             ))),

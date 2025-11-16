@@ -1,3 +1,5 @@
+use time::{Date, PrimitiveDateTime};
+
 use crate::evaluator::error::Error;
 use std::fmt;
 /*
@@ -150,6 +152,8 @@ pub enum Expression {
     Number(f64),
     Integer(i64),
     Boolean(bool),
+    ISODateTime(PrimitiveDateTime),
+    ISODate(Date),
 }
 
 impl fmt::Display for BinaryOperator {
@@ -219,6 +223,8 @@ impl fmt::Display for Expression {
             Self::Number(n) => write!(f, "{n}"),
             Self::Integer(i) => write!(f, "{i}"),
             Self::Boolean(b) => write!(f, "{b}"),
+            Self::ISODateTime(date) => write!(f, "{date}"),
+            Self::ISODate(date) => write!(f, "{date}"),
         }
     }
 }

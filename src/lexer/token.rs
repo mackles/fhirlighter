@@ -8,6 +8,8 @@ pub enum TokenKind {
     Number(f64),
     Integer(i64),
     Boolean(bool),
+    ISODate,
+    ISODateTime,
 
     // Operators
     Dot,                // .
@@ -117,6 +119,8 @@ impl fmt::Display for Token {
             TokenKind::Pipe => write!(f, "|"),
             TokenKind::Dollar => write!(f, "$"),
             TokenKind::Percent => write!(f, "%"),
+            TokenKind::ISODateTime => write!(f, "@ISODateTime"),
+            TokenKind::ISODate => write!(f, "@ISODate"),
             TokenKind::At => write!(f, "@"),
             TokenKind::Where => write!(f, "where"),
             TokenKind::Select => write!(f, "select"),
