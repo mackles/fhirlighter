@@ -1,10 +1,8 @@
 # FHIRLighter 
 
-A FHIRPath expression parser and evaluator implemented in Rust as a learning project for both Rust programming and parser implementation.
 
 ## Overview
-
-FHIRLighter is a basic implementation of the [FHIRPath specification](https://www.hl7.org/fhirpath/) - a path-based navigation and extraction language for FHIR resources. 
+A FHIRPath expression parser and evaluator implemented in Rust to minimally implement the [FHIRPath specification](https://www.hl7.org/fhirpath/) . Focused on small binary sizes and support for SQL on FHIR operations, forgoing semantic validation and other functions which return collections.
 
 ## Architecture
 
@@ -25,13 +23,13 @@ Run FHIRPath expressions against JSON files:
 cargo build
 
 # Evaluate expressions
-./target/debug/fhirlighter-rs "Patient.name[0].given.first()" "examples/patient.json"
+./target/debug/fhirlighter "Patient.name[0].given.first()" "examples/patient.json"
 # Result: "Peter"
 
-./target/debug/fhirlighter-rs "Patient.gender" "examples/patient.json"
+./target/debug/fhirlighter "Patient.gender" "examples/patient.json"
 # Result: "male"
 
-./target/debug/fhirlighter-rs "Patient.identifier[0].value" "examples/patient.json"
+./target/debug/fhirlighter "Patient.identifier[0].value" "examples/patient.json"
 # Result: "12345"
 ```
 
@@ -98,6 +96,4 @@ This project is open source and available under the MIT License.
 ## Resources
 
 - [FHIRPath Specification](https://www.hl7.org/fhirpath/)
-- [FHIR Resources](https://www.hl7.org/fhir/)
-- [The Rust Programming Language](https://doc.rust-lang.org/book/)
 - [Crafting Interpreters](https://craftinginterpreters.com/)
