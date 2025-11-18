@@ -1,6 +1,9 @@
 use super::error::Error;
-use crate::evaluator::functions::array_functions::{count, empty, exists, join, last, single};
-use crate::evaluator::utils::{ComparableTypes, eval_index, get_from_array, get_from_object};
+use crate::evaluator::comparable_types::ComparableTypes;
+use crate::evaluator::functions::array_functions::{
+    count, empty, exists, get_from_array, join, last, single,
+};
+use crate::evaluator::utils::{eval_index, get_from_object};
 use crate::parser::ast::Ast;
 #[cfg(test)]
 use crate::parser::grammar::ExprPool;
@@ -162,9 +165,8 @@ impl Evaluator {
                 // This logic should be in the join function
                 let default_seperator = &Expression::String(String::new());
                 let seperator = arguments
-                    .get(0)
-                    .map(|arg_ref| ast.expressions.get(*arg_ref))
-                    .unwrap_or(default_seperator);
+                    .first()
+                    .map_or(default_seperator, |arg_ref| ast.expressions.get(*arg_ref));
 
                 Ok(Cow::Owned(join(&resource, seperator)?))
             }
