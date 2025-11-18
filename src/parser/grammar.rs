@@ -109,6 +109,11 @@ pub struct ExprRef(u16);
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BinaryOperator {
     Equals,
+    NotEquals,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -151,6 +156,27 @@ impl fmt::Display for BinaryOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Equals => write!(f, "="),
+            Self::NotEquals => write!(f, "!="),
+            Self::LessThan => write!(f, "<"),
+            Self::LessThanOrEqual => write!(f, "<="),
+            Self::GreaterThan => write!(f, ">"),
+            Self::GreaterThanOrEqual => write!(f, ">="),
+        }
+    }
+}
+
+impl BinaryOperator {
+    #[must_use]
+    pub const fn from_token(token_kind: &crate::lexer::token::TokenKind) -> Option<Self> {
+        use crate::lexer::token::TokenKind;
+        match token_kind {
+            TokenKind::Equals => Some(Self::Equals),
+            TokenKind::NotEquals => Some(Self::NotEquals),
+            TokenKind::LessThan => Some(Self::LessThan),
+            TokenKind::LessThanOrEqual => Some(Self::LessThanOrEqual),
+            TokenKind::GreaterThan => Some(Self::GreaterThan),
+            TokenKind::GreaterThanOrEqual => Some(Self::GreaterThanOrEqual),
+            _ => None,
         }
     }
 }

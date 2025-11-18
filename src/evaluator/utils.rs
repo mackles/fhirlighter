@@ -35,3 +35,32 @@ pub fn get_from_array(cow_arr: Cow<Value>, index: usize) -> Result<Cow<Value>, E
         _ => Err(Error::Parse("Expected an array".to_string())),
     }
 }
+
+#[derive(PartialEq, PartialOrd)]
+pub enum ComparableTypes {
+    String(String),
+    Integer(i64),
+    Boolean(bool),
+}
+
+impl ComparableTypes {
+    #[must_use]
+    pub fn from_value(value: Value) -> Result<Self, Error> {
+        match value {
+            Value::String(string) => Ok(Self::String(string)),
+            Value::Number(number) => {
+                if let Some(int) = number.as_i64() {
+                    Ok(Self::Integer(int))
+                } else {
+                    Err(Error::Parse(
+                        "Number cannot be represented as i64".to_string(),
+                    ))
+                }
+            }
+            Value::Bool(b) => Ok(Self::Boolean(b)),
+            _ => Err(Error::Parse(
+                "Not implemented comparison for type.".to_string(),
+            )),
+        }
+    }
+}

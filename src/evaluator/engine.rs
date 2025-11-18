@@ -1,11 +1,11 @@
 use super::error::Error;
 use super::evaluation_utils::{eval_function, eval_index};
-use crate::evaluator::utils::{get_from_array, get_from_object};
+use crate::evaluator::utils::{ComparableTypes, get_from_array, get_from_object};
 use crate::parser::ast::Ast;
 #[cfg(test)]
 use crate::parser::grammar::ExprPool;
-use crate::parser::grammar::{ExprRef, Expression};
-use serde_json::Value;
+use crate::parser::grammar::{BinaryOperator, ExprRef, Expression};
+use serde_json::{Number, Value};
 use std::borrow::Cow;
 
 pub struct Evaluator;
@@ -111,20 +111,21 @@ impl Evaluator {
                 }
             }
             Expression::BinaryOperation { operator, lhs, rhs } => {
-                use crate::parser::grammar::BinaryOperator;
-                let lhs_eval = self.eval(ast, *lhs, resource)?.into_owned();
-                let rhs_eval = self.eval(ast, *rhs, resource)?.into_owned();
+                let lhs =
+                    ComparableTypes::from_value(self.eval(ast, *lhs, resource)?.into_owned())?;
+                let rhs =
+                    ComparableTypes::from_value(self.eval(ast, *rhs, resource)?.into_owned())?;
                 match operator {
-                    BinaryOperator::Equals => {
-                        if lhs_eval == rhs_eval {
-                            Ok(Cow::Owned(Value::Bool(true)))
-                        } else {
-                            Ok(Cow::Owned(Value::Bool(false)))
-                        }
-                    }
+                    BinaryOperator::Equals => Ok(Cow::Owned(Value::Bool(lhs == rhs))),
+                    BinaryOperator::NotEquals => Ok(Cow::Owned(Value::Bool(lhs == rhs))),
+                    BinaryOperator::LessThan => Ok(Cow::Owned(Value::Bool(lhs < rhs))),
+                    BinaryOperator::LessThanOrEqual => Ok(Cow::Owned(Value::Bool(lhs <= rhs))),
+                    BinaryOperator::GreaterThan => Ok(Cow::Owned(Value::Bool(lhs > rhs))),
+                    BinaryOperator::GreaterThanOrEqual => Ok(Cow::Owned(Value::Bool(lhs >= rhs))),
                 }
             }
             Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
+            Expression::Integer(integer) => Ok(Cow::Owned(Value::Number(Number::from(*integer)))),
             expression => Err(Error::Parse(format!(
                 "Expression: {expression} not implemented",
             ))),

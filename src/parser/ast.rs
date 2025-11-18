@@ -1,4 +1,4 @@
-use super::grammar::{ExprPool, ExprRef, Expression};
+use super::grammar::{BinaryOperator, ExprPool, ExprRef, Expression};
 use crate::evaluator::error::Error;
 use crate::lexer::token::{Token, TokenKind};
 
@@ -83,13 +83,13 @@ impl<'a> FhirParser<'a> {
                     })?;
                 }
 
-            // If our expression is an expression = expression
-            } else if self.peek().kind == TokenKind::Equals {
+            // If our expression is a binary operation (e.g., =, !=, <, <=, >, >=)
+            } else if let Some(operator) = BinaryOperator::from_token(&self.peek().kind) {
                 self.advance();
                 let rhs = self.parse_expression()?;
                 expression = self.ast.add({
                     Expression::BinaryOperation {
-                        operator: super::grammar::BinaryOperator::Equals,
+                        operator,
                         lhs: expression,
                         rhs,
                     }
