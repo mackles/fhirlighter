@@ -1,6 +1,6 @@
 use super::error::Error;
-use super::evaluation_utils::{eval_function, eval_index};
-use crate::evaluator::utils::{ComparableTypes, get_from_array, get_from_object};
+use crate::evaluator::functions::array_functions::{count, empty, exists, last};
+use crate::evaluator::utils::{ComparableTypes, eval_index, get_from_array, get_from_object};
 use crate::parser::ast::Ast;
 #[cfg(test)]
 use crate::parser::grammar::ExprPool;
@@ -101,7 +101,7 @@ impl Evaluator {
                     let function_object = self.eval(ast, *context, resource)?;
                     let function_expression = ast.expressions.get(*function);
                     if let Expression::Identifier(function_name) = function_expression {
-                        Ok(eval_function(function_object, function_name)?)
+                        Ok(Self::eval_function(function_object, function_name)?)
                     } else {
                         Err(Error::Parse(
                             "Function name must be an identifier".to_string(),
@@ -118,14 +118,15 @@ impl Evaluator {
                     ComparableTypes::from_value(self.eval(ast, *lhs, resource)?.into_owned())?;
                 let rhs =
                     ComparableTypes::from_value(self.eval(ast, *rhs, resource)?.into_owned())?;
-                match operator {
-                    BinaryOperator::Equals => Ok(Cow::Owned(Value::Bool(lhs == rhs))),
-                    BinaryOperator::NotEquals => Ok(Cow::Owned(Value::Bool(lhs != rhs))),
-                    BinaryOperator::LessThan => Ok(Cow::Owned(Value::Bool(lhs < rhs))),
-                    BinaryOperator::LessThanOrEqual => Ok(Cow::Owned(Value::Bool(lhs <= rhs))),
-                    BinaryOperator::GreaterThan => Ok(Cow::Owned(Value::Bool(lhs > rhs))),
-                    BinaryOperator::GreaterThanOrEqual => Ok(Cow::Owned(Value::Bool(lhs >= rhs))),
-                }
+                let result = match operator {
+                    BinaryOperator::Equals => lhs == rhs,
+                    BinaryOperator::NotEquals => lhs != rhs,
+                    BinaryOperator::LessThan => lhs < rhs,
+                    BinaryOperator::LessThanOrEqual => lhs <= rhs,
+                    BinaryOperator::GreaterThan => lhs > rhs,
+                    BinaryOperator::GreaterThanOrEqual => lhs >= rhs,
+                };
+                Ok(Cow::Owned(Value::Bool(result)))
             }
             Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
             Expression::Integer(integer) => Ok(Cow::Owned(Value::Number(Number::from(*integer)))),
@@ -134,6 +135,22 @@ impl Evaluator {
             Expression::ISODateTime(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
             expression => Err(Error::Parse(format!(
                 "Expression: {expression} not implemented",
+            ))),
+        }
+    }
+
+    fn eval_function<'a>(
+        resource: Cow<'a, Value>,
+        function: &str,
+    ) -> Result<Cow<'a, Value>, Error> {
+        match function {
+            "first" => get_from_array(resource, 0),
+            "empty" => empty(resource),
+            "last" => last(resource),
+            "count" => count(resource),
+            "exists" => exists(resource),
+            function => Err(Error::Unrecoverable(format!(
+                "Couldn't evaluate function: {function}"
             ))),
         }
     }

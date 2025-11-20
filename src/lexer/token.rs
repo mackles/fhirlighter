@@ -50,7 +50,6 @@ pub enum TokenKind {
     Select, // select
     All,    // all
     Any,    // any
-    Empty,  // empty
     Exists, // exists
 
     // End of input
@@ -126,7 +125,6 @@ impl fmt::Display for Token {
             TokenKind::Select => write!(f, "select"),
             TokenKind::All => write!(f, "all"),
             TokenKind::Any => write!(f, "any"),
-            TokenKind::Empty => write!(f, "empty"),
             TokenKind::Exists => write!(f, "exists"),
             TokenKind::Eof => write!(f, "EOF"),
             TokenKind::BackTick => write!(f, "`"),

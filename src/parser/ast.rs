@@ -193,8 +193,9 @@ impl<'a> FhirParser<'a> {
         } else {
             let token = self.peek();
             let position = self.position;
+            let kind = self.peek().kind;
             Err(Error::Parse(format!(
-                "Couldn't parse identifier. Received: {token}. Position: {position}"
+                "Couldn't parse identifier. Received: {token}. Position: {position}. Kind: {kind:?}"
             )))
         }
     }

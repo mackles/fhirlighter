@@ -1,8 +1,8 @@
+use super::error::Error;
+use crate::parser::grammar::Expression;
 use serde_json::Value;
 use std::borrow::Cow;
 use time::{Date, PrimitiveDateTime, format_description::well_known::Iso8601};
-
-use super::error::Error;
 
 pub fn get_from_object<'a>(cow_obj: Cow<'a, Value>, key: &str) -> Result<Cow<'a, Value>, Error> {
     match cow_obj {
@@ -36,6 +36,15 @@ pub fn get_from_array(cow_arr: Cow<Value>, index: usize) -> Result<Cow<Value>, E
     }
 }
 
+pub fn eval_index(index: &Expression, _: &Value) -> Result<usize, Error> {
+    match index {
+        Expression::Integer(i) => usize::try_from(*i).map_err(|e| {
+            Error::IntegerConversion(format!("Couldn't convert integer: {i} with error: {e}"))
+        }),
+        _other => Err(Error::Unrecoverable("Couldn't evaluate index".to_string())),
+    }
+}
+
 #[derive(Eq, PartialEq, PartialOrd, Debug)]
 pub enum ComparableTypes {
     String(String),
@@ -59,11 +68,14 @@ impl ComparableTypes {
                 // If parsing fails, treat as regular string
                 Ok(Self::String(string))
             }
-            Value::Number(number) => {
-                number.as_i64().map_or_else(|| Err(Error::Parse(
+            Value::Number(number) => number.as_i64().map_or_else(
+                || {
+                    Err(Error::Parse(
                         "Number cannot be represented as i64".to_string(),
-                 )), |int| Ok(Self::Integer(int)))
-            }
+                    ))
+                },
+                |int| Ok(Self::Integer(int)),
+            ),
             Value::Bool(b) => Ok(Self::Boolean(b)),
             _ => Err(Error::Parse(
                 "Not implemented comparison for type.".to_string(),

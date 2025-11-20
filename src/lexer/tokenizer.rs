@@ -27,8 +27,7 @@ impl<'a> Lexer<'a> {
             tokens.push(token);
         }
 
-        let pos = self.position;
-        tokens.push(Token::new(TokenKind::Eof, pos, pos));
+        tokens.push(Token::new(TokenKind::Eof, self.position, self.position));
         Ok(tokens)
     }
 
@@ -166,7 +165,6 @@ impl<'a> Lexer<'a> {
         self.advance();
         let start = self.position;
 
-        // Parse ISO date format: @YYYY-MM-DD or @YYYY-MM-DDTHH:MM:SS
         while !self.is_at_end()
             && !self.current_char().is_whitespace()
             && self.current_char() != ')'
@@ -263,7 +261,6 @@ impl<'a> Lexer<'a> {
             "select" => TokenKind::Select,
             "all" => TokenKind::All,
             "any" => TokenKind::Any,
-            "empty" => TokenKind::Empty,
             "exists" => TokenKind::Exists,
             "true" => TokenKind::Boolean(true),
             "false" => TokenKind::Boolean(false),
