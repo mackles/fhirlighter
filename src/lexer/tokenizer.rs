@@ -257,7 +257,6 @@ impl<'a> Lexer<'a> {
             "is" => TokenKind::Is,
             "as" => TokenKind::As,
             "mod" => TokenKind::Mod,
-            "where" => TokenKind::Where,
             "select" => TokenKind::Select,
             "all" => TokenKind::All,
             "any" => TokenKind::Any,
@@ -328,7 +327,7 @@ mod tests {
         assert_eq!(tokens[1].kind, TokenKind::Dot); // .
         assert_eq!(tokens[2].kind, TokenKind::Identifier); // name
         assert_eq!(tokens[3].kind, TokenKind::Dot); // .
-        assert_eq!(tokens[4].kind, TokenKind::Where); // where
+        assert_eq!(tokens[4].kind, TokenKind::Identifier); // where
         assert_eq!(tokens[5].kind, TokenKind::LeftParen); // (
         assert_eq!(tokens[6].kind, TokenKind::Identifier); // use
         assert_eq!(tokens[7].kind, TokenKind::Equals); // =

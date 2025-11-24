@@ -46,7 +46,6 @@ pub enum TokenKind {
     BackTick, // `
 
     // Keywords
-    Where,  // where
     Select, // select
     All,    // all
     Any,    // any
@@ -121,7 +120,6 @@ impl fmt::Display for Token {
             TokenKind::ISODateTime => write!(f, "@ISODateTime"),
             TokenKind::ISODate => write!(f, "@ISODate"),
             TokenKind::At => write!(f, "@"),
-            TokenKind::Where => write!(f, "where"),
             TokenKind::Select => write!(f, "select"),
             TokenKind::All => write!(f, "all"),
             TokenKind::Any => write!(f, "any"),

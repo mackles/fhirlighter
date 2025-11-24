@@ -95,13 +95,14 @@ impl Evaluator {
             Expression::FunctionCall {
                 object,
                 function,
-                arguments: _,
+                arguments,
             } => {
                 if let Some(context) = object {
                     let function_object = self.eval(ast, *context, resource)?;
                     let function_expression = ast.expressions.get(*function);
+
                     if let Expression::Identifier(function_name) = function_expression {
-                        Ok(Self::eval_function(function_object, function_name)?)
+                        Ok(self.eval_function(ast, function_object, function_name, arguments)?)
                     } else {
                         Err(Error::Parse(
                             "Function name must be an identifier".to_string(),
@@ -140,8 +141,11 @@ impl Evaluator {
     }
 
     fn eval_function<'a>(
+        &self,
+        ast: &'a Ast,
         resource: Cow<'a, Value>,
         function: &str,
+        arguments: &[ExprRef],
     ) -> Result<Cow<'a, Value>, Error> {
         match function {
             "first" => get_from_array(resource, 0),
@@ -149,6 +153,24 @@ impl Evaluator {
             "last" => last(resource),
             "count" => count(resource),
             "exists" => exists(resource),
+            "where" => {
+                // Use into_owned to keep code simple, in future consider Borrowed path where we only clone
+                // resources that require it to keep cost down.
+                if let Value::Array(array) = resource.into_owned() {
+                    let mut result = Vec::new();
+                    for val in array {
+                        let value = self.eval(ast, arguments[0], &val)?.into_owned();
+                        if value == Value::Bool(true) {
+                            result.push(val);
+                        }
+                    }
+                    Ok(Cow::Owned(Value::Array(result)))
+                } else {
+                    Err(Error::Unrecoverable(
+                        "Where must be invoked on array type.".to_string(),
+                    ))
+                }
+            }
             function => Err(Error::Unrecoverable(format!(
                 "Couldn't evaluate function: {function}"
             ))),
