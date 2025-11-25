@@ -149,10 +149,10 @@ impl Evaluator {
     ) -> Result<Cow<'a, Value>, Error> {
         match function {
             "first" => get_from_array(resource, 0),
-            "empty" => empty(resource),
+            "empty" => empty(&resource),
             "last" => last(resource),
-            "count" => count(resource),
-            "exists" => exists(resource),
+            "count" => count(&resource),
+            "exists" => exists(&resource),
             "where" => {
                 // Use into_owned to keep code simple, in future consider Borrowed path where we only clone
                 // resources that require it to keep cost down.
