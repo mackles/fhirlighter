@@ -45,13 +45,48 @@ pub fn eval_index(index: &Expression, _: &Value) -> Result<usize, Error> {
     }
 }
 
-#[derive(Eq, PartialEq, PartialOrd, Debug)]
+#[derive(Debug)]
 pub enum ComparableTypes {
     String(String),
     Integer(i64),
     Boolean(bool),
+    Float(f64),
     ISODateTime(PrimitiveDateTime),
     ISODate(Date),
+}
+
+impl PartialEq for ComparableTypes {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Integer(a), Self::Integer(b)) => a == b,
+            (Self::Float(a), Self::Float(b)) => a == b,
+            // Allow Integer/Float cross-comparisons
+            (Self::Integer(a), Self::Float(b)) => (*a as f64) == *b,
+            (Self::Float(a), Self::Integer(b)) => *a == (*b as f64),
+            (Self::String(a), Self::String(b)) => a == b,
+            (Self::Boolean(a), Self::Boolean(b)) => a == b,
+            (Self::ISODate(a), Self::ISODate(b)) => a == b,
+            (Self::ISODateTime(a), Self::ISODateTime(b)) => a == b,
+            _ => false,
+        }
+    }
+}
+
+impl PartialOrd for ComparableTypes {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self, other) {
+            (Self::Integer(a), Self::Integer(b)) => a.partial_cmp(b),
+            (Self::Float(a), Self::Float(b)) => a.partial_cmp(b),
+            // Allow Integer/Float cross-comparisons
+            (Self::Integer(a), Self::Float(b)) => (*a as f64).partial_cmp(b),
+            (Self::Float(a), Self::Integer(b)) => a.partial_cmp(&(*b as f64)),
+            (Self::String(a), Self::String(b)) => a.partial_cmp(b),
+            (Self::Boolean(a), Self::Boolean(b)) => a.partial_cmp(b),
+            (Self::ISODate(a), Self::ISODate(b)) => a.partial_cmp(b),
+            (Self::ISODateTime(a), Self::ISODateTime(b)) => a.partial_cmp(b),
+            _ => None,
+        }
+    }
 }
 
 impl ComparableTypes {
@@ -68,14 +103,16 @@ impl ComparableTypes {
                 // If parsing fails, treat as regular string
                 Ok(Self::String(string))
             }
-            Value::Number(number) => number.as_i64().map_or_else(
-                || {
-                    Err(Error::Parse(
-                        "Number cannot be represented as i64".to_string(),
-                    ))
-                },
-                |int| Ok(Self::Integer(int)),
-            ),
+            Value::Number(number) => {
+                if let Some(int) = number.as_i64() {
+                    return Ok(Self::Integer(int));
+                } else if let Some(float) = number.as_f64() {
+                    return Ok(Self::Float(float));
+                }
+                Err(Error::Parse(format!(
+                    "Couldn't convert: {number} into int or float."
+                )))
+            }
             Value::Bool(b) => Ok(Self::Boolean(b)),
             _ => Err(Error::Parse(
                 "Not implemented comparison for type.".to_string(),

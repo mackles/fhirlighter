@@ -55,7 +55,6 @@ fn test_equality_integers() {
 }
 
 #[test]
-#[ignore = "decimal literals not yet supported"]
 fn test_equality_decimals() {
     assert_bool("1.1 = 1.1", true);
     assert_bool("1.1 = 1.2", false);
@@ -66,7 +65,7 @@ fn test_equality_decimals() {
 #[test]
 fn test_equality_strings() {
     assert_bool("'a' = 'a'", true);
-    assert_bool("'a' = 'A'", false);  // Case sensitive
+    assert_bool("'a' = 'A'", false); // Case sensitive
     assert_bool("'a' = 'b'", false);
 }
 
@@ -86,7 +85,10 @@ fn test_equality_datetimes() {
 #[test]
 #[ignore = "requires timezone support"]
 fn test_equality_datetimes_with_timezone() {
-    assert_bool("@2012-04-15T15:00:00+02:00 = @2012-04-15T16:00:00+03:00", true);
+    assert_bool(
+        "@2012-04-15T15:00:00+02:00 = @2012-04-15T16:00:00+03:00",
+        true,
+    );
 }
 
 // ============================================================================
@@ -101,7 +103,6 @@ fn test_not_equal_integers() {
 }
 
 #[test]
-#[ignore = "decimal literals not yet supported"]
 fn test_not_equal_decimals() {
     assert_bool("1.1 != 1.1", false);
     assert_bool("1.1 != 1.2", true);
@@ -139,7 +140,6 @@ fn test_less_than_integers() {
 }
 
 #[test]
-#[ignore = "decimal literals not yet supported"]
 fn test_less_than_decimals() {
     assert_bool("1.0 < 1.2", true);
     assert_bool("1.0 < 1.0", false);
@@ -149,7 +149,7 @@ fn test_less_than_decimals() {
 #[test]
 fn test_less_than_strings() {
     assert_bool("'a' < 'b'", true);
-    assert_bool("'A' < 'a'", true);  // Uppercase < lowercase in ASCII
+    assert_bool("'A' < 'a'", true); // Uppercase < lowercase in ASCII
     assert_bool("'a' < 'a'", false);
     assert_bool("'b' < 'a'", false);
 }
@@ -188,7 +188,6 @@ fn test_less_or_equal_integers() {
 }
 
 #[test]
-#[ignore = "decimal literals not yet supported"]
 fn test_less_or_equal_decimals() {
     assert_bool("1.0 <= 1.2", true);
     assert_bool("1.0 <= 1.0", true);
@@ -229,7 +228,6 @@ fn test_greater_than_integers() {
 }
 
 #[test]
-#[ignore = "decimal literals not yet supported"]
 fn test_greater_than_decimals() {
     assert_bool("1.0 > 1.2", false);
     assert_bool("1.0 > 1.0", false);
@@ -270,7 +268,6 @@ fn test_greater_or_equal_integers() {
 }
 
 #[test]
-#[ignore = "decimal literals not yet supported"]
 fn test_greater_or_equal_decimals() {
     assert_bool("1.0 >= 1.2", false);
     assert_bool("1.0 >= 1.0", true);

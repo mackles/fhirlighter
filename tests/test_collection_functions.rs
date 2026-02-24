@@ -108,7 +108,6 @@ fn test_count4() {
 //        <output type="boolean">true</output>
 //      </test>
 #[test]
-
 #[ignore = "requires array eval support"]
 fn test_first_last1() {
     assert_bool("Patient.name.first().given = 'Peter' | 'James'", true);
@@ -120,7 +119,6 @@ fn test_first_last1() {
 //        <output type="boolean">true</output>
 //      </test>
 #[test]
-
 #[ignore = "requires array eval support"]
 fn test_first_last2() {
     assert_bool("Patient.name.last().given = 'Peter' | 'James'", true);
@@ -172,7 +170,6 @@ fn test_where3() {
 fn test_where4() {
     assert_bool("Patient.name.where($this.given = 'Jim').count() = 1", true);
 }
-
 
 #[test]
 fn test_where5() {

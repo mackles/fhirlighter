@@ -5,7 +5,9 @@ use std::borrow::Cow;
 pub fn empty<'a>(value: &Value) -> Result<Cow<'a, Value>, Error> {
     match value {
         Value::Array(array) => Ok(Cow::Owned(Value::Bool(array.is_empty()))),
-        _ => Err(Error::Parse("empty() function expects an array".to_string())),
+        _ => Err(Error::Parse(
+            "empty() function expects an array".to_string(),
+        )),
     }
 }
 
@@ -26,13 +28,17 @@ pub fn last(value: Cow<Value>) -> Result<Cow<Value>, Error> {
 pub fn count<'a>(value: &Value) -> Result<Cow<'a, Value>, Error> {
     match value {
         Value::Array(array) => Ok(Cow::Owned(Value::Number(Number::from(array.len())))),
-        _ => Err(Error::Parse("count() function expects an array".to_string())),
+        _ => Err(Error::Parse(
+            "count() function expects an array".to_string(),
+        )),
     }
 }
 
 pub fn exists<'a>(value: &Value) -> Result<Cow<'a, Value>, Error> {
     match value {
         Value::Array(array) => Ok(Cow::Owned(Value::Bool(!array.is_empty()))),
-        _ => Err(Error::Parse("exists() function expects an array".to_string())),
+        _ => Err(Error::Parse(
+            "exists() function expects an array".to_string(),
+        )),
     }
 }

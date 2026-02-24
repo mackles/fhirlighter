@@ -131,12 +131,15 @@ impl Evaluator {
             }
             Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
             Expression::Integer(integer) => Ok(Cow::Owned(Value::Number(Number::from(*integer)))),
+            Expression::Number(float) => {
+                let number = Number::from_f64(*float)
+                    .ok_or_else(|| Error::Parse(format!("Invalid float value: {float}")))?;
+                Ok(Cow::Owned(Value::Number(number)))
+            }
             // TODO: Identify whether this causes issues/investigate a cleaner way to do this
             Expression::ISODate(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
             Expression::ISODateTime(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
-            expression => Err(Error::Parse(format!(
-                "Expression: {expression} not implemented",
-            ))),
+            Expression::Boolean(boolean) => Ok(Cow::Owned(Value::Bool(*boolean))),
         }
     }
 
