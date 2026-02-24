@@ -61,7 +61,9 @@ impl PartialEq for ComparableTypes {
             (Self::Integer(a), Self::Integer(b)) => a == b,
             (Self::Float(a), Self::Float(b)) => a == b,
             // Allow Integer/Float cross-comparisons
+            #[allow(clippy::cast_precision_loss)]
             (Self::Integer(a), Self::Float(b)) => (*a as f64) == *b,
+            #[allow(clippy::cast_precision_loss)]
             (Self::Float(a), Self::Integer(b)) => *a == (*b as f64),
             (Self::String(a), Self::String(b)) => a == b,
             (Self::Boolean(a), Self::Boolean(b)) => a == b,
@@ -78,7 +80,9 @@ impl PartialOrd for ComparableTypes {
             (Self::Integer(a), Self::Integer(b)) => a.partial_cmp(b),
             (Self::Float(a), Self::Float(b)) => a.partial_cmp(b),
             // Allow Integer/Float cross-comparisons
+            #[allow(clippy::cast_precision_loss)]
             (Self::Integer(a), Self::Float(b)) => (*a as f64).partial_cmp(b),
+            #[allow(clippy::cast_precision_loss)]
             (Self::Float(a), Self::Integer(b)) => a.partial_cmp(&(*b as f64)),
             (Self::String(a), Self::String(b)) => a.partial_cmp(b),
             (Self::Boolean(a), Self::Boolean(b)) => a.partial_cmp(b),

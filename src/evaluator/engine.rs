@@ -1,5 +1,5 @@
 use super::error::Error;
-use crate::evaluator::functions::array_functions::{count, empty, exists, last};
+use crate::evaluator::functions::array_functions::{count, empty, exists, join, last, single};
 use crate::evaluator::utils::{ComparableTypes, eval_index, get_from_array, get_from_object};
 use crate::parser::ast::Ast;
 #[cfg(test)]
@@ -152,10 +152,22 @@ impl Evaluator {
     ) -> Result<Cow<'a, Value>, Error> {
         match function {
             "first" => get_from_array(resource, 0),
-            "empty" => empty(&resource),
+            "empty" => Ok(Cow::Owned(empty(&resource)?)),
             "last" => last(resource),
-            "count" => count(&resource),
-            "exists" => exists(&resource),
+            "count" => Ok(Cow::Owned(count(&resource)?)),
+            "exists" => Ok(Cow::Owned(exists(&resource)?)),
+            "single" => Ok(Cow::Owned(single(&resource)?)),
+            "join" => {
+                // TODO: Improve .get function for expressions to return Option<Expression>
+                // This logic should be in the join function
+                let default_seperator = &Expression::String(String::new());
+                let seperator = arguments
+                    .get(0)
+                    .map(|arg_ref| ast.expressions.get(*arg_ref))
+                    .unwrap_or(default_seperator);
+
+                Ok(Cow::Owned(join(&resource, seperator)?))
+            }
             "where" => {
                 // Use into_owned to keep code simple, in future consider Borrowed path where we only clone
                 // resources that require it to keep cost down.
