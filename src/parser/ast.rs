@@ -19,13 +19,13 @@ pub struct Ast {
 
 impl<'a> FhirParser<'a> {
     #[must_use]
-    pub const fn new(tokens: &'a Vec<Token>, input: &'a str) -> Self {
+    pub fn new(tokens: &'a Vec<Token>, input: &'a str) -> Self {
         Self {
             tokens,
             input,
             position: 0,
             str_position: 0, // end of current token
-            ast: ExprPool::new(),
+            ast: ExprPool::with_capacity((tokens.len() * 3) / 4), // Assume ~1/4 of tokens are unused
         }
     }
 

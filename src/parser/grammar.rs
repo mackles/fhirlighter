@@ -64,8 +64,12 @@ impl Default for ExprPool {
 impl ExprPool {
     #[must_use]
     pub const fn new() -> Self {
-        // TODO: Reduce re-allocations by estimating capacity
         Self(Vec::new())
+    }
+
+    #[must_use]
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(Vec::with_capacity(capacity))
     }
 
     /// # Errors

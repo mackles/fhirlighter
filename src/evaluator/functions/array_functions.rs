@@ -57,7 +57,7 @@ pub fn single(value: &Value) -> Result<Value, Error> {
 pub fn join(value: &Value, join_char: &Expression) -> Result<Value, Error> {
     if let Expression::String(seperator) = join_char {
         if let Value::Array(array) = value {
-            let mut result: Vec<&str> = Vec::new();
+            let mut result: Vec<&str> = Vec::with_capacity(array.len());
             for val in array {
                 if let Value::String(string) = val {
                     result.push(string.as_str());
