@@ -51,44 +51,9 @@ impl Evaluator {
     ) -> Result<Cow<'a, Value>, Error> {
         let expression = ast.expressions.get(expr_ref);
         match expression {
-            Expression::Identifier(name) => {
-                let resource_type = resource
-                    .get("resourceType")
-                    .unwrap_or_default()
-                    .as_str()
-                    .unwrap_or("");
-                if resource_type == name {
-                    return Ok(Cow::Borrowed(resource));
-                } else if let Some(value) = resource.get(name) {
-                    return Ok(Cow::Borrowed(value));
-                }
-                Err(Error::Parse(format!(
-                    "Could not find field or resource type: {name}"
-                )))
-            }
+            Expression::Identifier(name) => Self::eval_identifier(name, resource),
             Expression::MemberAccess { object, member } => {
-                let member_object = self.eval(ast, *object, resource)?;
-                match member_object.as_ref() {
-                    Value::Array(array) => {
-                        let mut result = Vec::new();
-                        for item in array {
-                            if let Some(value) = item.get(member) {
-                                match value {
-                                    Value::Array(arr) => {
-                                        result.extend(arr.iter().cloned());
-                                    }
-                                    other => {
-                                        result.push(other.clone());
-                                    }
-                                }
-                            }
-                            // If member doesn't exist on this item, skip it (no error)
-                        }
-                        Ok(Cow::Owned(Value::Array(result)))
-                    }
-                    Value::Object(_) => get_from_object(member_object, member),
-                    _ => Err(Error::Parse("Unimplemented: MemberAccess".to_string())),
-                }
+                self.eval_member_access(ast, *object, member, resource)
             }
             Expression::Index { object, index } => {
                 let index_object = self.eval(ast, *object, resource)?;
@@ -99,38 +64,9 @@ impl Evaluator {
                 object,
                 function,
                 arguments,
-            } => {
-                if let Some(context) = object {
-                    let function_object = self.eval(ast, *context, resource)?;
-                    let function_expression = ast.expressions.get(*function);
-
-                    if let Expression::Identifier(function_name) = function_expression {
-                        Ok(self.eval_function(ast, function_object, function_name, arguments)?)
-                    } else {
-                        Err(Error::Parse(
-                            "Function name must be an identifier".to_string(),
-                        ))
-                    }
-                } else {
-                    Err(Error::Parse(
-                        "Standalone functions are not implemented".to_string(),
-                    ))
-                }
-            }
+            } => self.eval_function_call(ast, *object, *function, arguments, resource),
             Expression::BinaryOperation { operator, lhs, rhs } => {
-                let lhs =
-                    ComparableTypes::from_value(self.eval(ast, *lhs, resource)?.into_owned())?;
-                let rhs =
-                    ComparableTypes::from_value(self.eval(ast, *rhs, resource)?.into_owned())?;
-                let result = match operator {
-                    BinaryOperator::Equals => lhs == rhs,
-                    BinaryOperator::NotEquals => lhs != rhs,
-                    BinaryOperator::LessThan => lhs < rhs,
-                    BinaryOperator::LessThanOrEqual => lhs <= rhs,
-                    BinaryOperator::GreaterThan => lhs > rhs,
-                    BinaryOperator::GreaterThanOrEqual => lhs >= rhs,
-                };
-                Ok(Cow::Owned(Value::Bool(result)))
+                self.eval_binary_operation(ast, *operator, *lhs, *rhs, resource)
             }
             Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
             Expression::Integer(integer) => Ok(Cow::Owned(Value::Number(Number::from(*integer)))),
@@ -144,6 +80,100 @@ impl Evaluator {
             Expression::ISODateTime(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
             Expression::Boolean(boolean) => Ok(Cow::Owned(Value::Bool(*boolean))),
         }
+    }
+
+    fn eval_function_call<'a>(
+        &self,
+        ast: &'a Ast,
+        object: Option<ExprRef>,
+        function: ExprRef,
+        args: &[ExprRef],
+        resource: &'a Value,
+    ) -> Result<Cow<'a, Value>, Error> {
+        if let Some(context) = object {
+            let function_object = self.eval(ast, context, resource)?;
+            let function_expression = ast.expressions.get(function);
+
+            if let Expression::Identifier(function_name) = function_expression {
+                Ok(self.eval_function(ast, function_object, function_name, args)?)
+            } else {
+                Err(Error::Parse(
+                    "Function name must be an identifier".to_string(),
+                ))
+            }
+        } else {
+            Err(Error::Parse(
+                "Standalone functions are not implemented".to_string(),
+            ))
+        }
+    }
+
+    fn eval_identifier<'a>(name: &String, resource: &'a Value) -> Result<Cow<'a, Value>, Error> {
+        let resource_type = resource
+            .get("resourceType")
+            .unwrap_or_default()
+            .as_str()
+            .unwrap_or("");
+        if resource_type == name {
+            return Ok(Cow::Borrowed(resource));
+        } else if let Some(value) = resource.get(name) {
+            return Ok(Cow::Borrowed(value));
+        }
+        Err(Error::Parse(format!(
+            "Could not find field or resource type: {name}"
+        )))
+    }
+
+    fn eval_member_access<'a>(
+        &self,
+        ast: &'a Ast,
+        object: ExprRef,
+        member: &String,
+        resource: &'a Value,
+    ) -> Result<Cow<'a, Value>, Error> {
+        let member_object = self.eval(ast, object, resource)?;
+        match member_object.as_ref() {
+            Value::Array(array) => {
+                let mut result = Vec::new();
+                for item in array {
+                    if let Some(value) = item.get(member) {
+                        match value {
+                            Value::Array(arr) => {
+                                result.extend(arr.iter().cloned());
+                            }
+                            other => {
+                                result.push(other.clone());
+                            }
+                        }
+                    }
+                    // If member doesn't exist on this item, skip it (no error)
+                }
+                Ok(Cow::Owned(Value::Array(result)))
+            }
+            Value::Object(_) => get_from_object(member_object, member),
+            _ => Err(Error::Parse("Unimplemented: MemberAccess".to_string())),
+        }
+    }
+
+    fn eval_binary_operation<'a>(
+        &self,
+        ast: &Ast,
+        operator: BinaryOperator,
+        lhs: ExprRef,
+        rhs: ExprRef,
+        resource: &Value,
+    ) -> Result<Cow<'a, Value>, Error> {
+        let lhs = ComparableTypes::from_value(self.eval(ast, lhs, resource)?.into_owned())?;
+        let rhs = ComparableTypes::from_value(self.eval(ast, rhs, resource)?.into_owned())?;
+        let result = match operator {
+            BinaryOperator::Equals => lhs == rhs,
+            BinaryOperator::NotEquals => lhs != rhs,
+            BinaryOperator::LessThan => lhs < rhs,
+            BinaryOperator::LessThanOrEqual => lhs <= rhs,
+            BinaryOperator::GreaterThan => lhs > rhs,
+            BinaryOperator::GreaterThanOrEqual => lhs >= rhs,
+        };
+        Ok(Cow::Owned(Value::Bool(result)))
     }
 
     fn eval_function<'a>(
