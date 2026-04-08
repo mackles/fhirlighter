@@ -1,5 +1,5 @@
 use super::error::Error;
-use crate::evaluator::comparable_types::ComparableTypes;
+use crate::evaluator::comparable_types::FHIRPathValue;
 use crate::evaluator::functions::array_functions::{
     count, empty, exists, get_from_array, join, last, single,
 };
@@ -8,7 +8,7 @@ use crate::parser::ast::Ast;
 #[cfg(test)]
 use crate::parser::grammar::ExprPool;
 use crate::parser::grammar::{BinaryOperator, ExprRef, Expression};
-use serde_json::{Number, Value};
+use serde_json::Value;
 use std::borrow::Cow;
 
 pub struct Evaluator;
@@ -31,12 +31,9 @@ impl Evaluator {
     pub fn evaluate(&self, ast: &Ast, resource: &Value) -> Result<Value, Error> {
         let start = ast.start;
         match self.eval(ast, start, resource) {
-            Ok(value) => Ok(value.into_owned()),
+            Ok(value) => Ok(value.into_value().into_owned()),
             Err(error) => match error {
-                Error::Parse(error) => {
-                    println!("{error}");
-                    Ok(Value::Array(vec![]))
-                }
+                Error::Parse(_) => Ok(Value::Array(vec![])),
                 _ => Err(error),
             },
         }
@@ -48,7 +45,7 @@ impl Evaluator {
         ast: &'a Ast,
         expr_ref: ExprRef,
         resource: &'a Value,
-    ) -> Result<Cow<'a, Value>, Error> {
+    ) -> Result<FHIRPathValue<'a>, Error> {
         let expression = ast.expressions.get(expr_ref);
         match expression {
             Expression::Identifier(name) => Self::eval_identifier(name, resource),
@@ -57,7 +54,7 @@ impl Evaluator {
             }
             Expression::Index { object, index } => {
                 let index_object = self.eval(ast, *object, resource)?;
-                let index = eval_index(ast.expressions.get(index.to_owned()), resource)?;
+                let index = eval_index(ast.expressions.get(*index), resource)?;
                 get_from_array(index_object, index)
             }
             Expression::FunctionCall {
@@ -68,17 +65,12 @@ impl Evaluator {
             Expression::BinaryOperation { operator, lhs, rhs } => {
                 self.eval_binary_operation(ast, *operator, *lhs, *rhs, resource)
             }
-            Expression::String(literal) => Ok(Cow::Owned(Value::String(literal.to_string()))),
-            Expression::Integer(integer) => Ok(Cow::Owned(Value::Number(Number::from(*integer)))),
-            Expression::Number(float) => {
-                let number = Number::from_f64(*float)
-                    .ok_or_else(|| Error::Parse(format!("Invalid float value: {float}")))?;
-                Ok(Cow::Owned(Value::Number(number)))
-            }
-            // TODO: Identify whether this causes issues/investigate a cleaner way to do this
-            Expression::ISODate(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
-            Expression::ISODateTime(date) => Ok(Cow::Owned(Value::String(date.to_string()))),
-            Expression::Boolean(boolean) => Ok(Cow::Owned(Value::Bool(*boolean))),
+            Expression::String(literal) => Ok(FHIRPathValue::String(literal.to_string())),
+            Expression::Integer(integer) => Ok(FHIRPathValue::Integer(*integer)),
+            Expression::Number(float) => Ok(FHIRPathValue::Float(*float)),
+            Expression::ISODate(date) => Ok(FHIRPathValue::ISODate(*date)),
+            Expression::ISODateTime(datetime) => Ok(FHIRPathValue::ISODateTime(*datetime)),
+            Expression::Boolean(boolean) => Ok(FHIRPathValue::Boolean(*boolean)),
         }
     }
 
@@ -89,7 +81,7 @@ impl Evaluator {
         function: ExprRef,
         args: &[ExprRef],
         resource: &'a Value,
-    ) -> Result<Cow<'a, Value>, Error> {
+    ) -> Result<FHIRPathValue<'a>, Error> {
         if let Some(context) = object {
             let function_object = self.eval(ast, context, resource)?;
             let function_expression = ast.expressions.get(function);
@@ -108,16 +100,16 @@ impl Evaluator {
         }
     }
 
-    fn eval_identifier<'a>(name: &String, resource: &'a Value) -> Result<Cow<'a, Value>, Error> {
+    fn eval_identifier<'a>(name: &String, resource: &'a Value) -> Result<FHIRPathValue<'a>, Error> {
         let resource_type = resource
             .get("resourceType")
             .unwrap_or_default()
             .as_str()
             .unwrap_or("");
         if resource_type == name {
-            return Ok(Cow::Borrowed(resource));
+            return Ok(FHIRPathValue::Json(Cow::Borrowed(resource)));
         } else if let Some(value) = resource.get(name) {
-            return Ok(Cow::Borrowed(value));
+            return Ok(FHIRPathValue::from_value(value))?;
         }
         Err(Error::Parse(format!(
             "Could not find field or resource type: {name}"
@@ -130,9 +122,9 @@ impl Evaluator {
         object: ExprRef,
         member: &String,
         resource: &'a Value,
-    ) -> Result<Cow<'a, Value>, Error> {
+    ) -> Result<FHIRPathValue<'a>, Error> {
         let member_object = self.eval(ast, object, resource)?;
-        match member_object.as_ref() {
+        match member_object.as_json_ref()? {
             Value::Array(array) => {
                 let mut result = Vec::new();
                 for item in array {
@@ -146,9 +138,8 @@ impl Evaluator {
                             }
                         }
                     }
-                    // If member doesn't exist on this item, skip it (no error)
                 }
-                Ok(Cow::Owned(Value::Array(result)))
+                Ok(FHIRPathValue::Json(Cow::Owned(Value::Array(result))))
             }
             Value::Object(_) => get_from_object(member_object, member),
             _ => Err(Error::Parse("Unimplemented: MemberAccess".to_string())),
@@ -162,9 +153,9 @@ impl Evaluator {
         lhs: ExprRef,
         rhs: ExprRef,
         resource: &Value,
-    ) -> Result<Cow<'a, Value>, Error> {
-        let lhs = ComparableTypes::from_value(self.eval(ast, lhs, resource)?.as_ref())?;
-        let rhs = ComparableTypes::from_value(self.eval(ast, rhs, resource)?.as_ref())?;
+    ) -> Result<FHIRPathValue<'a>, Error> {
+        let lhs = self.eval(ast, lhs, resource)?;
+        let rhs = self.eval(ast, rhs, resource)?;
         let result = match operator {
             BinaryOperator::Equals => lhs == rhs,
             BinaryOperator::NotEquals => lhs != rhs,
@@ -173,52 +164,50 @@ impl Evaluator {
             BinaryOperator::GreaterThan => lhs > rhs,
             BinaryOperator::GreaterThanOrEqual => lhs >= rhs,
         };
-        Ok(Cow::Owned(Value::Bool(result)))
+        Ok(FHIRPathValue::Boolean(result))
     }
 
     fn eval_function<'a>(
         &self,
         ast: &'a Ast,
-        resource: Cow<'a, Value>,
+        resource: FHIRPathValue<'a>,
         function: &str,
-        arguments: &[ExprRef],
-    ) -> Result<Cow<'a, Value>, Error> {
+        args: &[ExprRef],
+    ) -> Result<FHIRPathValue<'a>, Error> {
         match function {
             "first" => get_from_array(resource, 0),
-            "empty" => Ok(Cow::Owned(empty(&resource)?)),
+            "empty" => empty(&resource),
             "last" => last(resource),
-            "count" => Ok(Cow::Owned(count(&resource)?)),
-            "exists" => Ok(Cow::Owned(exists(&resource)?)),
-            "single" => Ok(Cow::Owned(single(&resource)?)),
-            "join" => {
-                // TODO: Improve .get function for expressions to return Option<Expression>
-                // This logic should be in the join function
-                let default_seperator = &Expression::String(String::new());
-                let seperator = arguments
-                    .first()
-                    .map_or(default_seperator, |arg_ref| ast.expressions.get(*arg_ref));
-
-                Ok(Cow::Owned(join(&resource, seperator)?))
-            }
-            "where" => {
-                if let Value::Array(array) = resource.as_ref() {
-                    let mut result = Vec::new();
-                    for val in array {
-                        let value = self.eval(ast, arguments[0], &val)?.into_owned();
-                        if value == Value::Bool(true) {
-                            result.push(val.clone());
-                        }
-                    }
-                    Ok(Cow::Owned(Value::Array(result)))
-                } else {
-                    Err(Error::Unrecoverable(
-                        "Where must be invoked on array type.".to_string(),
-                    ))
-                }
-            }
+            "count" => count(&resource),
+            "exists" => exists(&resource),
+            "single" => single(&resource),
+            "join" => join(ast, &resource, args),
+            "where" => self.eval_where(ast, &resource, args),
             function => Err(Error::Unrecoverable(format!(
                 "Couldn't evaluate function: {function}"
             ))),
+        }
+    }
+
+    fn eval_where<'a>(
+        &self,
+        ast: &Ast,
+        resource: &FHIRPathValue<'a>,
+        args: &[ExprRef],
+    ) -> Result<FHIRPathValue<'a>, Error> {
+        if let Value::Array(array) = resource.as_json_ref()? {
+            let mut result = Vec::new();
+            for val in array {
+                let value = self.eval(ast, args[0], val)?;
+                if value == FHIRPathValue::Boolean(true) {
+                    result.push(val.clone());
+                }
+            }
+            Ok(FHIRPathValue::Json(Cow::Owned(Value::Array(result))))
+        } else {
+            Err(Error::Unrecoverable(
+                "Where must be invoked on array type.".to_string(),
+            ))
         }
     }
 }
