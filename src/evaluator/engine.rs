@@ -163,8 +163,8 @@ impl Evaluator {
         rhs: ExprRef,
         resource: &Value,
     ) -> Result<Cow<'a, Value>, Error> {
-        let lhs = ComparableTypes::from_value(self.eval(ast, lhs, resource)?.into_owned())?;
-        let rhs = ComparableTypes::from_value(self.eval(ast, rhs, resource)?.into_owned())?;
+        let lhs = ComparableTypes::from_value(self.eval(ast, lhs, resource)?.as_ref())?;
+        let rhs = ComparableTypes::from_value(self.eval(ast, rhs, resource)?.as_ref())?;
         let result = match operator {
             BinaryOperator::Equals => lhs == rhs,
             BinaryOperator::NotEquals => lhs != rhs,
@@ -201,14 +201,12 @@ impl Evaluator {
                 Ok(Cow::Owned(join(&resource, seperator)?))
             }
             "where" => {
-                // Use into_owned to keep code simple, in future consider Borrowed path where we only clone
-                // resources that require it to keep cost down.
-                if let Value::Array(array) = resource.into_owned() {
+                if let Value::Array(array) = resource.as_ref() {
                     let mut result = Vec::new();
                     for val in array {
                         let value = self.eval(ast, arguments[0], &val)?.into_owned();
                         if value == Value::Bool(true) {
-                            result.push(val);
+                            result.push(val.clone());
                         }
                     }
                     Ok(Cow::Owned(Value::Array(result)))

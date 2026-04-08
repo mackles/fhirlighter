@@ -51,7 +51,7 @@ impl PartialOrd for ComparableTypes {
 }
 
 impl ComparableTypes {
-    pub fn from_value(value: Value) -> Result<Self, Error> {
+    pub fn from_value(value: &Value) -> Result<Self, Error> {
         match value {
             Value::String(string) => {
                 if let Ok(date) = Date::parse(&string, &Iso8601::DATE) {
@@ -62,7 +62,7 @@ impl ComparableTypes {
                 }
 
                 // If parsing fails, treat as regular string
-                Ok(Self::String(string))
+                Ok(Self::String(string.to_string()))
             }
             Value::Number(number) => {
                 if let Some(int) = number.as_i64() {
@@ -74,7 +74,7 @@ impl ComparableTypes {
                     "Couldn't convert: {number} into int or float."
                 )))
             }
-            Value::Bool(b) => Ok(Self::Boolean(b)),
+            Value::Bool(b) => Ok(Self::Boolean(*b)),
             _ => Err(Error::Parse(
                 "Not implemented comparison for type.".to_string(),
             )),
